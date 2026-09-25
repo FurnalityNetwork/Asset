@@ -3,16 +3,15 @@
  * Intégration Cloudflare Workers / D1 & Navigation
  */
 
-// URL officielle du Cloudflare Worker
 const CLOUDFLARE_WORKER_URL = 'https://furnality-api.darkeoftime.workers.dev';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Lucide Icons
+  // 1. Initialisation des icônes Lucide
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();
   }
 
-  // 2. Menu Mobile
+  // 2. Initialisation du Menu Mobile
   initMobileMenu();
 
   // 3. Navigation Dynamique du Footer depuis Cloudflare D1
@@ -42,10 +41,12 @@ function initMobileMenu() {
 
 async function loadFooterLinks() {
   try {
+    console.log('Connexion à l\'API D1 Cloudflare...');
     const res = await fetch(`${CLOUDFLARE_WORKER_URL}/api/footer-links`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     
     const data = await res.json();
+    console.log('Données reçues de la BDD :', data);
 
     const furnalityNav = document.getElementById('footer-furnality');
     const officeNav = document.getElementById('footer-office');
