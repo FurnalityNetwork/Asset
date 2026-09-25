@@ -5,4 +5,4 @@ compatibility_date = "2026-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "furnality-db"
-database_id = "VOTRE_DATABASE_ID_CLOUDFLARE" # Généré lors de la création de la BDD sur Cloudflare
+database_id = "d090b18b-19a2-41ad-bb86-23833eb0c9b6" # Généré lors de la création de la BDD sur Cloudflare
