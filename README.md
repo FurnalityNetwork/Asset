@@ -24,11 +24,15 @@ Le projet utilise une structure monorepo centralisée où chaque sous-dossier co
 
 ```text
 furnality-web/
-├── assets/                  # Ressources globales du réseau
-│   ├── fonts/               # Polices typographiques
-│   ├── icons/               # Favicons et icônes
-│   ├── logos/               # Identités visuelles de Furnality et des studios
-│   └── images/              # Bannières et habillages graphiques
+├── Assets/                      # Ressources globales (attention à la majuscule)
+│   ├── FAV/                     # Favicons du réseau (.svg)
+│   ├── FLAG/                    # Drapeaux et visuels régionaux (.svg)
+│   ├── FONT/
+│   │   └── CALEDONIAN_FONT/     # Polices typographiques du groupe (.ttf)
+│   └── STD/                     # Identités visuelles et logos
+│       ├── CHANNEL/             # Logos des chaînes TV / flux vidéo (.svg, .png)
+│       ├── RADIO/               # Logos des stations radio (.svg)
+│       └── STUDIO/              # Logos des studios et entités (Furnality, OBC, Zapping...)
 │
 ├── css/                     # Feuilles de style globales
 ├── js/                      # Scripts JavaScript
