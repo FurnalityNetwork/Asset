@@ -4,7 +4,7 @@
  */
 
 // Remplacez par l'URL officielle de votre Cloudflare Worker une fois déployé
-const CLOUDFLARE_WORKER_URL = 'https://furnality-api.<votre-sous-domaine>.workers.dev';
+const CLOUDFLARE_WORKER_URL = 'https://furnality-api.darkeoftime.workers.dev';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Lucide Icons
