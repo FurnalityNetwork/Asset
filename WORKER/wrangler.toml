@@ -1,0 +1,8 @@
+name = "furnality-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "furnality-db"
+database_id = "VOTRE_DATABASE_ID_CLOUDFLARE" # Généré lors de la création de la BDD sur Cloudflare

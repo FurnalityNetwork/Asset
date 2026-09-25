@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Furnality — Studio de diffusion & Réseau Multimédia</title>
+  
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="Assets/images/Fav - Furnality.svg">
+  <link rel="stylesheet" href="css/global.css">
+</head>
+<body class="bg-white text-gray-900 antialiased min-h-screen flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="top-nav fixed top-0 z-50 w-full px-6 py-4 md:px-10">
+    <nav class="relative mx-auto flex max-w-7xl items-center justify-between">
+      <div class="logo-box">
+        <a href="/" class="flex items-center gap-3">
+          <img src="Assets/images/Furnality Logo.svg" alt="Furnality" class="h-7 w-auto object-contain" onerror="this.style.display='none'">
+          <span class="text-base font-bold tracking-widest text-black uppercase">Furnality</span>
+        </a>
+      </div>
+
+      <div class="hidden lg:flex items-center gap-8">
+        <a href="/" class="nav-link text-black">Accueil</a>
+        <a href="/Zapping" class="nav-link">Zapping</a>
+        <a href="/OfficeBroadCaster" class="nav-link">Office Broadcaster</a>
+        <a href="/news" class="nav-link">News</a>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <a href="#contact" class="primary-button hidden md:inline-flex">Contact</a>
+        <button id="menu-button" type="button" class="inline-flex h-10 w-10 items-center justify-center border border-gray-200 lg:hidden">
+          <i data-lucide="menu" width="18" height="18"></i>
+        </button>
+      </div>
+
+      <div id="mobile-menu" class="mobile-menu absolute top-full left-0 right-0 flex-col gap-4 p-6 bg-white border-b border-gray-200 shadow-lg lg:hidden">
+        <a href="/" class="nav-link">Accueil</a>
+        <a href="/Zapping" class="nav-link">Zapping</a>
+        <a href="/OfficeBroadCaster" class="nav-link">Office Broadcaster</a>
+        <a href="/news" class="nav-link">News</a>
+        <a href="#contact" class="primary-button text-center mt-2">Contact</a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Contenu -->
+  <main class="pt-28 px-6 max-w-7xl mx-auto flex-grow">
+    <h1 class="text-3xl font-bold mb-4">Furnality Network</h1>
+    <p class="text-gray-600">Bienvenue sur le portail principal du réseau.</p>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-200 py-12 px-6 mt-12">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 pb-10 border-b border-gray-200 text-xs">
+        
+        <div class="space-y-3">
+          <p class="text-base font-bold tracking-widest text-black uppercase">FURNALITY</p>
+          <p class="text-gray-500 leading-relaxed text-xs">
+            Du Son, de l’Image, une Famille.<br>
+            Le média francophone et 100% indépendant.
+          </p>
+          <div class="pt-2 flex flex-col items-start gap-1">
+            <img src="Assets/images/DCNC.svg" alt="Drapeau Commun NC" class="h-6 w-auto object-contain mb-1" />
+            <p class="text-xs font-bold text-black leading-tight">Studio Nouméa,</p>
+            <p class="text-xs font-bold text-black leading-tight">Nouvelle-Calédonie</p>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="eyebrow text-xs mb-4">Furnality</h4>
+          <nav id="footer-furnality" class="flex flex-col gap-2"></nav>
+        </div>
+
+        <div>
+          <h4 class="eyebrow text-xs mb-4">Office Broadcaster</h4>
+          <nav id="footer-office" class="flex flex-col gap-2"></nav>
+        </div>
+
+        <div>
+          <h4 class="eyebrow text-xs mb-4">Chaînes & Marques</h4>
+          <nav id="footer-channels" class="flex flex-col gap-2"></nav>
+        </div>
+
+        <div>
+          <h4 class="eyebrow text-xs mb-4">Informations & Légal</h4>
+          <nav class="flex flex-col gap-2">
+            <a href="/legacy/mentions-legales.html" class="footer-link">Mentions Légales</a>
+            <a href="/legacy/cgu-conditions.html" class="footer-link">CGU & Conditions</a>
+            <a href="/legacy/confidentialite-donnees.html" class="footer-link">Confidentialité</a>
+            <a href="/legacy/charte-antenne.html" class="footer-link">Charte des Antennes</a>
+          </nav>
+        </div>
+
+      </div>
+
+      <div class="mt-8 flex flex-col md:flex-row items-center justify-between text-xs text-gray-500 gap-4">
+        <p>&copy; 2026 Furnality — Tous droits réservés.</p>
+        <p class="font-semibold text-gray-700">Furnality Network</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/global.js"></script>
+</body>
+</html>

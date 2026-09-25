@@ -1,0 +1,163 @@
+/* ==========================================================================
+   FURNALITY NETWORK — GLOBAL STYLESHEET
+   Charte graphique unifiée, typographies et composants partagés.
+   ========================================================================== */
+
+/* Importation des polices locales Caledonian */
+@font-face {
+  font-family: 'Caledonian';
+  src: url('../Assets/fonts/Caledonian_Font/Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Caledonian';
+  src: url('../Assets/fonts/Caledonian_Font/Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Caledonian';
+  src: url('../Assets/fonts/Caledonian_Font/Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Variables globales & Couleurs d'Antennes */
+:root {
+  /* Identité Visuelle Principale */
+  --color-bg-main: #ffffff;
+  --color-bg-card: #f8f9fa;
+  --color-border-light: #e5e7eb;
+  --color-text-main: #0a0a0a;
+  --color-text-muted: #525252;
+  --color-accent-black: #000000;
+  --font-main: 'Caledonian', Georgia, -apple-system, BlinkMacSystemFont, serif;
+
+  /* Palette des Canaux du Réseau */
+  --cos-primary: #0055ff;      /* CenterofStream */
+  --d9-mvc-primary: #ff1d25;  /* Direct 9 & MVC */
+  --sgfr-primary: #10d050;    /* Streaming Game FR */
+  --saz-primary: #7f00ff;     /* Stream Animation Zone */
+  --aom-primary: #fbc531;     /* Asta of Mitologi */
+  --td-primary: #ff6600;      /* Toku Dungeon */
+  --c7-primary: #ff007f;      /* CANAL 7 */
+  --c8-primary: #5856d6;      /* CANAL 8 */
+  --obf-primary: #944613;     /* One By Furnality */
+}
+
+/* Suppression stricte des arrondis & Normalisation */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important;
+  font-family: var(--font-main) !important;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--color-text-main);
+  background: var(--color-bg-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Navigation Haute */
+.top-nav {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+.nav-link:hover {
+  color: var(--color-accent-black);
+}
+
+/* Boutons Éditoriaux */
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-accent-black);
+  color: #ffffff !important;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border: 1px solid var(--color-accent-black);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.primary-button:hover {
+  background-color: #262626;
+  border-color: #262626;
+  transform: translateY(-2px);
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1.5rem;
+  background-color: transparent;
+  color: var(--color-text-main) !important;
+  border: 1px solid var(--color-border-light);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.secondary-button:hover {
+  border-color: var(--color-accent-black);
+  transform: translateY(-2px);
+}
+
+/* Structural Components */
+.eyebrow {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Footer Links */
+.footer-link {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  transition: color 0.2s ease;
+  text-decoration: none;
+}
+.footer-link:hover {
+  color: var(--color-accent-black);
+  text-decoration: underline;
+}
+
+.mobile-menu { display: none; }
+.mobile-menu.open { display: flex; }
