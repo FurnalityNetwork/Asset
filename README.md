@@ -23,18 +23,28 @@ Dev : **Z-Kirby90**
 Le projet utilise une structure monorepo centralisée où chaque sous-dossier correspond à une sous-page ou à un module spécifique du réseau :
 
 ```text
-furnality-web/
-├── Assets/                      # Ressources globales (attention à la majuscule)
-│   ├── FAV/                     # Favicons du réseau (.svg)
-│   ├── FLAG/                    # Drapeaux et visuels régionaux (.svg)
-│   ├── FONT/
-│   │   └── CALEDONIAN_FONT/     # Polices typographiques du groupe (.ttf)
-│   └── STD/                     # Identités visuelles et logos
-│       ├── CHANNEL/             # Logos des chaînes TV / flux vidéo (.svg, .png)
-│       ├── RADIO/               # Logos des stations radio (.svg)
-│       └── STUDIO/              # Logos des studios et entités (Furnality, OBC, Zapping...)
-│
-├── css/                     # Feuilles de style globales
-├── js/                      # Scripts JavaScript
-│
-└── README.md                # Documentation du dépôt
+furnality-global/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml            # (Optionnel) Déploiement auto
+├── Assets/
+│   ├── fonts/
+│   │   └── Caledonian_Font/
+│   │       ├── Regular.ttf
+│   │       ├── Medium.ttf
+│   │       └── Bold.ttf
+│   └── images/
+│       ├── Fav - Furnality.svg
+│       ├── Furnality Logo.svg
+│       └── DCNC.svg
+├── css/
+│   └── global.css                # Style global unifié
+├── js/
+│   └── global.js                 # Script client (Front-end)
+├── worker/
+│   ├── src/
+│   │   └── index.js              # Code de l'API Cloudflare Worker
+│   ├── wrangler.toml             # Configuration Cloudflare Worker & D1
+│   └── schema.sql                # Fichier SQL de la base D1
+├── index.html                    # Page d'accueil ou template
+└── README.md
