@@ -3,7 +3,7 @@
  * Intégration Cloudflare Workers / D1 & Navigation
  */
 
-// Remplacez par l'URL officielle de votre Cloudflare Worker une fois déployé
+// URL officielle du Cloudflare Worker
 const CLOUDFLARE_WORKER_URL = 'https://furnality-api.darkeoftime.workers.dev';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,11 +27,15 @@ function initMobileMenu() {
 
   if (menuToggle && mobileMenu) {
     menuToggle.addEventListener('click', () => {
-      mobileMenu.classList.toggle('open');
+      mobileMenu.classList.toggle('hidden');
+      mobileMenu.classList.toggle('flex');
     });
 
     mobileMenu.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => mobileMenu.classList.remove('open'));
+      link.addEventListener('click', () => {
+        mobileMenu.classList.add('hidden');
+        mobileMenu.classList.remove('flex');
+      });
     });
   }
 }
@@ -56,7 +60,7 @@ async function loadFooterLinks() {
       a.href = link.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      a.className = 'footer-link';
+      a.className = 'footer-link text-gray-500 hover:text-black transition-colors';
       a.textContent = link.label;
 
       if (link.id >= 1000 && link.id < 2000 && furnalityNav) {
