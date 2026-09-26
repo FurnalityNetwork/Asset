@@ -1,4 +1,3 @@
-// Mapping des couleurs par chaîne
 const CHANNEL_COLORS = {
   "CenterofStream": "#FF0000",
   "SoundofSkully": "#9B59B6",
@@ -15,14 +14,12 @@ const CHANNEL_COLORS = {
 
 async function loadZappingData() {
   try {
-    // 1. Charger les diffusions (TV & Radio)
     const resDiff = await fetch(`${WORKER_URL}/api/diffusions`);
     if (resDiff.ok) {
       const diffusions = await resDiff.json();
       renderChannels(diffusions);
     }
 
-    // 2. Charger les émissions (Shows)
     const resShows = await fetch(`${WORKER_URL}/api/shows`);
     if (resShows.ok) {
       const shows = await resShows.json();
@@ -58,23 +55,21 @@ function renderChannels(items) {
       hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-60 cursor-not-allowed"
     }`;
     
-    // Bordure colorée spécifique à la chaîne
+    // Force la couleur de bordure pour écraser Tailwind
     card.style.cssText = `border-top: 4px solid ${brandColor} !important;`;
-    
+
     card.innerHTML = `
-      <!-- Pastille de Statut (En direct / Hors ligne) -->
       <span class="absolute top-2 right-2 flex h-2.5 w-2.5">
         <span class="${isOnline ? 'animate-ping opacity-75 bg-green-400' : 'bg-gray-300'} absolute inline-flex h-full w-full rounded-full"></span>
         <span class="${isOnline ? 'bg-green-500' : 'bg-gray-400'} relative inline-flex rounded-full h-2.5 w-2.5"></span>
       </span>
 
-      <!-- Logo de la chaîne -->
       <div class="h-12 w-full flex items-center justify-center mb-3">
         <img 
           src="${item.logo}" 
           alt="${item.nom}" 
           class="max-h-full max-w-full object-contain"
-          onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-xs font-bold text-gray-400\'>${item.nom}</span>';"
+          onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-gray-400\\'>${item.nom}</span>';"
         />
       </div>
 
