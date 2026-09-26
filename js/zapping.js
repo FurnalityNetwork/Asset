@@ -1,131 +1,117 @@
-const channelClassMap = {
-  'CenterofStream': 'ch-cos',
-  'SoundofSkully': 'ch-sos',
-  'Music Video Channel': 'ch-mvc',
-  'Streaming Game FR': 'ch-sgfr',
-  'Stream Animation Zone': 'ch-saz',
-  'Asta of Mitologi': 'ch-aom',
-  'Toku Dungeon': 'ch-td',
-  'CANAL 7': 'ch-c7',
-  'CANAL 8': 'ch-c8',
-  'Direct 9': 'ch-d9',
-  'One by Furnality': 'ch-obf',
-  'Furnality News': 'ch-news',
-  'Furnality Radio': 'ch-radio'
+// Mapping des couleurs par chaîne
+const CHANNEL_COLORS = {
+  "CenterofStream": "#FF0000",
+  "SoundofSkully": "#9B59B6",
+  "Streaming Game FR": "#1ABC9C",
+  "Stream Animation Zone": "#F39C12",
+  "Asta of Mytolog": "#E74C3C",
+  "Toku Dungeon": "#3498DB",
+  "CANAL 7": "#34495E",
+  "CANAL 8": "#2ECC71",
+  "Direct 9": "#E67E22",
+  "One by Furnality": "#0055FF",
+  "Furnality Radio": "#8E44AD"
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadDiffusions();
-  loadShows();
-});
-
-async function loadDiffusions() {
+async function loadZappingData() {
   try {
-    const res = await fetch(`${CLOUDFLARE_WORKER_URL}/api/diffusions`);
-    if (!res.ok) throw new Error('Erreur API diffusions');
-    const diffusions = await res.json();
+    // 1. Charger les diffusions (TV & Radio)
+    const resDiff = await fetch(`${WORKER_URL}/api/diffusions`);
+    if (resDiff.ok) {
+      const diffusions = await resDiff.json();
+      renderChannels(diffusions);
+    }
 
-    const tvContainer = document.getElementById('tv-channels-grid');
-    const radioContainer = document.getElementById('radio-channels-grid');
-
-    if (tvContainer) tvContainer.innerHTML = '';
-    if (radioContainer) radioContainer.innerHTML = '';
-
-    diffusions.forEach(item => {
-      const container = item.role === 'TV' ? tvContainer : radioContainer;
-      if (!container) return;
-
-      const styleClass = channelClassMap[item.nom] || '';
-      
-      const isActive = item.status === "true";
-      const isUnrented = item.status === null || item.status === "";
-      
-      const card = document.createElement(isActive && item.stream_url ? 'a' : 'div');
-      
-      if (isActive && item.stream_url) {
-        card.href = item.stream_url;
-        card.target = '_blank';
-        card.rel = 'noopener noreferrer';
-        card.className = `channel-card ${styleClass}`;
-      } else {
-        card.className = 'channel-card opacity-50 grayscale cursor-not-allowed';
-        card.title = isUnrented ? 'Canal non loué' : 'Hors ligne';
-      }
-
-      card.innerHTML = item.logo 
-        ? `<img src="${item.logo}" alt="${item.nom}" class="h-10 mb-2 object-contain" />`
-        : `<span class="text-sm font-bold mt-1 text-center leading-tight">${item.nom}</span>`;
-
-      container.appendChild(card);
-    });
+    // 2. Charger les émissions (Shows)
+    const resShows = await fetch(`${WORKER_URL}/api/shows`);
+    if (resShows.ok) {
+      const shows = await resShows.json();
+      renderShows(shows);
+    }
   } catch (err) {
-    console.error('Erreur chargement diffusions:', err);
+    console.error("Erreur de chargement Zapping:", err);
   }
 }
 
-async function loadShows() {
-  try {
-    const [showsRes, diffRes] = await Promise.all([
-      fetch(`${CLOUDFLARE_WORKER_URL}/api/shows`),
-      fetch(`${CLOUDFLARE_WORKER_URL}/api/diffusions`)
-    ]);
+function renderChannels(items) {
+  const tvGrid = document.getElementById("tv-channels-grid");
+  const radioGrid = document.getElementById("radio-channels-grid");
 
-    const shows = await showsRes.json();
-    const diffusions = await diffRes.json();
+  if (!tvGrid || !radioGrid) return;
 
-    const showsContainer = document.getElementById('shows-grid');
-    if (!showsContainer) return;
-    showsContainer.innerHTML = '';
+  tvGrid.innerHTML = "";
+  radioGrid.innerHTML = "";
 
-    shows.forEach(show => {
-      const matchingBroadcast = diffusions.find(d => d.id === show.diffusion_id) || {
-        nom: 'Furnality Network',
-        role: 'TV'
-      };
+  items.forEach(item => {
+    const isOnline = String(item.status).toUpperCase() === "TRUE";
+    const brandColor = CHANNEL_COLORS[item.nom] || "#000000";
+    const hasLink = item.stream_url && item.stream_url !== "NULL";
 
-      const isRadio = matchingBroadcast.role === 'RDO';
-      const badgeType = isRadio ? 'RADIO' : 'TV';
-      const badgeColors = isRadio ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-gray-100 text-gray-700 border-gray-200';
+    const card = document.createElement(hasLink ? "a" : "div");
+    if (hasLink) {
+      card.href = item.stream_url;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+    }
 
-      const mainUrl = show.video_url || show.podcast_url || '#';
+    card.className = `relative flex flex-col items-center justify-center p-6 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200 ${
+      hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-60 cursor-not-allowed"
+    }`;
+    
+    // Bordure colorée spécifique à la chaîne
+    card.style.borderTop = `4px solid ${brandColor}`;
 
-      const card = document.createElement('div');
-      card.className = 'program-card flex flex-col h-full bg-white border border-gray-200 hover:-translate-y-1 hover:shadow-lg transition-all overflow-hidden';
+    card.innerHTML = `
+      <!-- Pastille de Statut (En direct / Hors ligne) -->
+      <span class="absolute top-2 right-2 flex h-2.5 w-2.5">
+        <span class="${isOnline ? 'animate-ping opacity-75 bg-green-400' : 'bg-gray-300'} absolute inline-flex h-full w-full rounded-full"></span>
+        <span class="${isOnline ? 'bg-green-500' : 'bg-gray-400'} relative inline-flex rounded-full h-2.5 w-2.5"></span>
+      </span>
 
-      card.innerHTML = `
-        ${show.image ? `<a href="${mainUrl}" target="_blank" rel="noopener noreferrer"><img src="${show.image}" alt="${show.nom}" class="w-full aspect-video object-cover border-b border-gray-200" /></a>` : ''}
-        <div class="p-6 flex flex-col justify-between flex-grow">
-          <div>
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">${show.production || 'Indépendant'}</span>
-              <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${badgeColors}">
-                ${badgeType} • ${matchingBroadcast.nom}
-              </span>
-            </div>
-            <h3 class="text-lg font-bold text-black leading-snug">
-              <a href="${mainUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">${show.nom}</a>
-            </h3>
-            ${show.description ? `<p class="mt-2 text-xs text-gray-600 line-clamp-3 leading-relaxed">${show.description}</p>` : ''}
-          </div>
+      <!-- Logo de la chaîne -->
+      <div class="h-12 w-full flex items-center justify-center mb-3">
+        <img 
+          src="${item.logo}" 
+          alt="${item.nom}" 
+          class="max-h-full max-w-full object-contain"
+          onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-xs font-bold text-gray-400\'>${item.nom}</span>';"
+        />
+      </div>
 
-          <div class="mt-6 pt-4 border-t border-gray-100 flex items-center gap-2">
-            ${show.video_url ? `
-              <a href="${show.video_url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors">
-                Voir la vidéo
-              </a>
-            ` : ''}
-            ${show.podcast_url ? `
-              <a href="${show.podcast_url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-800 border border-gray-200 text-[11px] font-bold uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                Écouter Podcast
-              </a>
-            ` : ''}
-          </div>
+      <span class="text-xs font-semibold text-gray-700 text-center">${item.nom}</span>
+    `;
+
+    if (item.role === "TV") {
+      tvGrid.appendChild(card);
+    } else if (item.role === "RDO") {
+      radioGrid.appendChild(card);
+    }
+  });
+}
+
+function renderShows(shows) {
+  const showsGrid = document.getElementById("shows-grid");
+  if (!showsGrid) return;
+  showsGrid.innerHTML = "";
+
+  shows.forEach(show => {
+    const card = document.createElement("div");
+    card.className = "bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow";
+    
+    card.innerHTML = `
+      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="w-full h-40 object-cover" />` : ''}
+      <div class="p-5">
+        <p class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-1">${show.production || 'Émission'}</p>
+        <h4 class="text-lg font-bold text-gray-900 mb-2">${show.nom}</h4>
+        <p class="text-sm text-gray-600 line-clamp-2 mb-4">${show.description || ''}</p>
+        <div class="flex gap-2">
+          ${show.video_url ? `<a href="${show.video_url}" target="_blank" class="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 rounded hover:bg-gray-800">Voir</a>` : ''}
+          ${show.podcast_url ? `<a href="${show.podcast_url}" target="_blank" class="text-xs font-bold uppercase tracking-wider border border-gray-300 px-3 py-2 rounded hover:border-black">Écouter</a>` : ''}
         </div>
-      `;
-
-      showsContainer.appendChild(card);
-    });
-  } catch (err) {
-    console.error('Erreur chargement shows:', err);
-  }
+      </div>
+    `;
+    showsGrid.appendChild(card);
+  });
 }
+
+document.addEventListener("DOMContentLoaded", loadZappingData);
