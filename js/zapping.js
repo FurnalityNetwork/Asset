@@ -59,8 +59,8 @@ function renderChannels(items) {
     }`;
     
     // Bordure colorée spécifique à la chaîne
-    card.style.borderTop = `4px solid ${brandColor}`;
-
+    card.style.cssText = `border-top: 4px solid ${brandColor} !important;`;
+    
     card.innerHTML = `
       <!-- Pastille de Statut (En direct / Hors ligne) -->
       <span class="absolute top-2 right-2 flex h-2.5 w-2.5">
