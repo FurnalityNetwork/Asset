@@ -3,13 +3,12 @@
    Charte graphique unifiée, typographies et composants partagés.
    ========================================================================== */
 
-/* Importation des polices locales Caledonian (URL Absolues & Repo Asset au singulier) */
+/* Importation des polices locales Caledonian */
 @font-face {
   font-family: 'Caledonian';
   src: url('https://raw.githack.com/FurnalityNetwork/Asset/main/fonts/Caledonian_Font/Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
 }
 
 @font-face {
@@ -17,7 +16,6 @@
   src: url('https://raw.githack.com/FurnalityNetwork/Asset/main/fonts/Caledonian_Font/Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
 }
 
 @font-face {
@@ -25,7 +23,6 @@
   src: url('https://raw.githack.com/FurnalityNetwork/Asset/main/fonts/Caledonian_Font/Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
 }
 
 /* Variables globales & Couleurs d'Antennes */
