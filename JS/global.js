@@ -3,6 +3,7 @@
  * Intégration Cloudflare Workers / D1 & Navigation
  */
 
+// URL officielle du Cloudflare Worker corrigée
 const CLOUDFLARE_WORKER_URL = 'https://furnality-api.darkeoftime.workers.dev';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,12 +42,10 @@ function initMobileMenu() {
 
 async function loadFooterLinks() {
   try {
-    console.log('Connexion à l\'API D1 Cloudflare...');
     const res = await fetch(`${CLOUDFLARE_WORKER_URL}/api/footer-links`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     
     const data = await res.json();
-    console.log('Données reçues de la BDD :', data);
 
     const furnalityNav = document.getElementById('footer-furnality');
     const officeNav = document.getElementById('footer-office');
@@ -61,7 +60,7 @@ async function loadFooterLinks() {
       a.href = link.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      a.className = 'footer-link text-gray-500 hover:text-black transition-colors';
+      a.className = 'footer-link text-gray-500 hover:text-black transition-colors block py-1';
       a.textContent = link.label;
 
       if (link.id >= 1000 && link.id < 2000 && furnalityNav) {
