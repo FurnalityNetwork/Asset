@@ -1,5 +1,3 @@
-const CLOUDFLARE_WORKER_URL = 'https://furnality-api.darkeoftime.workers.dev';
-
 const channelClassMap = {
   'CenterofStream': 'ch-cos',
   'SoundofSkully': 'ch-sos',
