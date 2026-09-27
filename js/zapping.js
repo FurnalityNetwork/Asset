@@ -1,15 +1,17 @@
-const CHANNEL_COLORS = {
-  "CenterofStream": "#FF0000",
-  "SoundofSkully": "#9B59B6",
-  "Streaming Game FR": "#1ABC9C",
-  "Stream Animation Zone": "#F39C12",
-  "Asta of Mytologi": "#E74C3C",
-  "Toku Dungeon": "#3498DB",
-  "CANAL 7": "#34495E",
-  "CANAL 8": "#2ECC71",
-  "Direct 9": "#E67E22",
-  "One by Furnality": "#0055FF",
-  "Furnality Radio": "#8E44AD"
+const CHANNEL_COLOR_VARS = {
+  "CenterofStream": "--cos-primary",
+  "SoundofSkully": "--sos-primary",
+  "Music Video Channel": "--sos-primary",
+  "Direct 9": "--sos-primary",
+  "Furnality News": "--sos-primary",
+  "Furnality Radio": "--cos-primary",
+  "Streaming Game FR": "--sgfr-primary",
+  "Stream Animation Zone": "--saz-primary",
+  "Asta of Mitologi": "--aom-primary",
+  "Toku Dungeon": "--td-primary",
+  "CANAL 7": "--c7-primary",
+  "CANAL 8": "--c8-primary",
+  "One by Furnality": "--obf-primary"
 };
 
 async function loadZappingData() {
