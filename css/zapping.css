@@ -58,16 +58,3 @@
 .channel-card:hover::before {
   height: 5px;
 }
-
-.ch-cos { --channel-color: var(--cos-primary); }
-.ch-d9 { --channel-color: var(--d9-mvc-primary); }
-.ch-mvc { --channel-color: var(--d9-mvc-primary); }
-.ch-sos { --channel-color: var(--sos-primary); }
-.ch-sgfr { --channel-color: var(--sgfr-primary); }
-.ch-saz { --channel-color: var(--saz-primary); }
-.ch-aom { --channel-color: var(--aom-primary); }
-.ch-td { --channel-color: var(--td-primary); }
-.ch-c7 { --channel-color: var(--c7-primary); }
-.ch-c8 { --channel-color: var(--c8-primary); }
-.ch-obf { --channel-color: var(--obf-primary); }
-.ch-news { --channel-color: var(--news-primary); }
