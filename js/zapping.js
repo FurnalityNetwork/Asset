@@ -61,9 +61,9 @@ function renderChannels(items) {
       hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-50 grayscale cursor-not-allowed"
     }`;
 
-    card.style.cssText = colorVar
-      ? `border-top: 4px solid var(${colorVar}) !important;`
-      : `border-top: 4px solid #000000 !important;`;
+if (colorVar) {
+  card.style.setProperty('--channel-color', `var(${colorVar})`);
+}
 
     card.innerHTML = `
       <div class="h-12 w-full flex items-center justify-center mb-3">
@@ -74,7 +74,7 @@ function renderChannels(items) {
           onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-gray-400\\'>${item.nom}</span>';"
         />
       </div>
-      <span class="text-xs font-semibold text-gray-700 text-center">${item.nom}</span>
+      <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">${broadcaster ? broadcaster.nom : 'Furnality'}</span>
     `;
 
     if (item.role === "TV") {
@@ -94,21 +94,20 @@ function renderShows(shows, diffusions) {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
 
     const card = document.createElement("div");
-    card.className = "bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col h-full";
+    card.className = "show-card";
 
     card.innerHTML = `
-      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="w-full h-40 object-cover" />` : ''}
-      <div class="p-5 flex flex-col flex-grow">
+      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="show-image" />` : ''}
+      <div class="show-body">
         <div class="flex items-center gap-2 mb-3">
           ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-5 w-auto object-contain" />` : ''}
-          <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">${broadcaster ? broadcaster.nom : 'Furnality'}</span>
         </div>
         <h4 class="text-lg font-bold text-gray-900 mb-1">${show.nom}</h4>
         <p class="text-xs text-gray-400 mb-3">${show.production || ''}</p>
         <p class="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow">${show.description || ''}</p>
-        <div class="flex gap-2">
-          ${show.video_url ? `<a href="${show.video_url}" target="_blank" class="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 rounded hover:bg-gray-800">Voir</a>` : ''}
-          ${show.podcast_url ? `<a href="${show.podcast_url}" target="_blank" class="text-xs font-bold uppercase tracking-wider border border-gray-300 px-3 py-2 rounded hover:border-black">Écouter</a>` : ''}
+        <div class="flex gap-2 show-actions">
+          ${show.video_url ? `<a href="${show.video_url}" target="_blank">Lire</a>` : ''}
+          ${show.podcast_url ? `<a href="${show.podcast_url}" target="_blank">Écouter</a>` : ''}
         </div>
       </div>
     `;
