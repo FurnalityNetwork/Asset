@@ -1,15 +1,25 @@
 :root {
-  --cos-primary: #0055ff;
-  --d9-mvc-primary: #ff1d25;
-  --sgfr-primary: #10d050;
-  --saz-primary: #7f00ff;
-  --aom-primary: #fbc531;
-  --td-primary: #ff6600;
-  --c7-primary: #ff007f;
-  --c8-primary: #5856d6;
+  /* Couleurs primaires (claires) */
+  --cos-primary: #0055FF;   /* CenterofStream & Furnality Radio */
+  --sos-primary: #FF1D25;   /* SoundofSkully, MVC, Direct 9, Furnality News */
+  --sgfr-primary: #10D050;
+  --saz-primary: #7F00FF;
+  --aom-primary: #FBC531;
+  --td-primary: #FF6600;
+  --c7-primary: #FF007F;
+  --c8-primary: #5856D6;
   --obf-primary: #944613;
-  --sos-primary: #00d2ff;
-  --news-primary: #d90000;
+
+  /* Couleurs secondaires (foncées) */
+  --cos-secondary: #001133;
+  --sos-secondary: #330507;
+  --sgfr-secondary: #033010;
+  --saz-secondary: #1A0033;
+  --aom-secondary: #4A3800;
+  --td-secondary: #4D1F00;
+  --c7-secondary: #4D0026;
+  --c8-secondary: #1A1845;
+  --obf-secondary: #260F03;
 }
 
 .channel-card {
