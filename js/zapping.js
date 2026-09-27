@@ -3,7 +3,7 @@ const CHANNEL_COLORS = {
   "SoundofSkully": "#9B59B6",
   "Streaming Game FR": "#1ABC9C",
   "Stream Animation Zone": "#F39C12",
-  "Asta of Mytolog": "#E74C3C",
+  "Asta of Mytologi": "#E74C3C",
   "Toku Dungeon": "#3498DB",
   "CANAL 7": "#34495E",
   "CANAL 8": "#2ECC71",
@@ -14,13 +14,13 @@ const CHANNEL_COLORS = {
 
 async function loadZappingData() {
   try {
-    const resDiff = await fetch(`${WORKER_URL}/api/diffusions`);
+    const resDiff = await fetch(`${CLOUDFLARE_WORKER_URL}/api/diffusions`);
     if (resDiff.ok) {
       const diffusions = await resDiff.json();
       renderChannels(diffusions);
     }
 
-    const resShows = await fetch(`${WORKER_URL}/api/shows`);
+    const resShows = await fetch(`${CLOUDFLARE_WORKER_URL}/api/shows`);
     if (resShows.ok) {
       const shows = await resShows.json();
       renderShows(shows);
@@ -55,7 +55,6 @@ function renderChannels(items) {
       hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-60 cursor-not-allowed"
     }`;
     
-    // Force la couleur de bordure pour écraser Tailwind
     card.style.cssText = `border-top: 4px solid ${brandColor} !important;`;
 
     card.innerHTML = `
