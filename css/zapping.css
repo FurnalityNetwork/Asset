@@ -58,3 +58,33 @@
 .channel-card:hover::before {
   height: 5px;
 }
+
+function renderShows(shows, diffusions) {
+  const showsGrid = document.getElementById("shows-grid");
+  if (!showsGrid) return;
+  showsGrid.innerHTML = "";
+
+  shows.forEach(show => {
+    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
+
+    const card = document.createElement("div");
+    card.className = "show-card";
+
+    card.innerHTML = `
+      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="show-image" />` : ''}
+      <div class="show-body">
+        <div class="flex items-center gap-2 mb-3">
+          ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-5 w-auto object-contain" />` : ''}
+        </div>
+        <h4 class="text-lg font-bold text-gray-900 mb-1">${show.nom}</h4>
+        <p class="text-xs text-gray-400 mb-3">${show.production || ''}</p>
+        <p class="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow">${show.description || ''}</p>
+        <div class="flex gap-2 show-actions">
+          ${show.video_url ? `<a href="${show.video_url}" target="_blank">Lire</a>` : ''}
+          ${show.podcast_url ? `<a href="${show.podcast_url}" target="_blank">Écouter</a>` : ''}
+        </div>
+      </div>
+    `;
+    showsGrid.appendChild(card);
+  });
+}
