@@ -94,57 +94,53 @@ function renderShows(shows, diffusions) {
 
   shows.forEach(show => {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
+    
+    // Déterminer la couleur de la chaîne pour les accents
+    const channelName = broadcaster ? broadcaster.nom : '';
+    const colorVarName = CHANNEL_COLOR_VARS[channelName];
+    // On récupère la valeur hexadécimale via getComputedStyle, ou on met noir par défaut
+    const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
 
-    const card = document.createElement("div");
+    const card = document.createElement("article");
     card.className = "show-card";
+    
+    // Application de la couleur d'accentuation en variable CSS inline
+    card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
-      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="show-image" />` : ''}
+      ${show.image ? `
+        <div class="show-image-container">
+          <img src="${show.image}" alt="${show.nom}" class="show-image" loading="lazy" />
+        </div>
+      ` : ''}
+      
       <div class="show-body">
-        <div class="flex items-center gap-2 mb-3">
-          ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-5 w-auto object-contain" />` : ''}
+        <div class="show-header">
+          <span class="show-category">${show.production || 'Programme'}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${broadcaster.nom}</span>` : ''}
         </div>
-        <h4 class="text-lg font-bold text-gray-900 mb-1">${show.nom}</h4>
-        <p class="text-xs text-gray-400 mb-3">${show.production || ''}</p>
-        <p class="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow">${show.description || ''}</p>
-        <div class="flex gap-2 show-actions">
-          ${show.video_url ? `<a href="${show.video_url}" target="_blank">Lire</a>` : ''}
-          ${show.podcast_url ? `<a href="${show.podcast_url}" target="_blank">Écouter</a>` : ''}
+        
+        <h4 class="show-title">${show.nom}</h4>
+        
+        <p class="show-desc line-clamp-3">${show.description || 'Aucune description disponible.'}</p>
+        
+        <div class="show-actions">
+          ${show.video_url && show.video_url !== 'NULL' ? `
+            <a href="${show.video_url}" target="_blank" rel="noopener noreferrer" class="show-action-btn">
+              Regarder
+            </a>
+          ` : ''}
+          
+          ${show.podcast_url && show.podcast_url !== 'NULL' ? `
+            <a href="${show.podcast_url}" target="_blank" rel="noopener noreferrer" class="show-action-btn">
+              Écouter
+            </a>
+          ` : ''}
         </div>
       </div>
     `;
+    
     showsGrid.appendChild(card);
-  });
-}
-
-function renderFeaturedShows(shows, diffusions) {
-  const slider = document.getElementById("featured-slider");
-  if (!slider) return;
-
-  const featured = shows.filter(s => String(s.is_featured).toUpperCase() === "TRUE");
-  slider.innerHTML = "";
-
-  if (featured.length === 0) {
-    slider.style.display = "none";
-    return;
-  }
-  slider.style.display = "flex";
-
-  featured.forEach(show => {
-    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
-
-    const slide = document.createElement("div");
-    slide.className = "featured-slide";
-    slide.innerHTML = `
-      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
-      <div class="featured-slide-content">
-        ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
-        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
-        <p class="text-gray-200 max-w-lg mb-4">${show.description || ''}</p>
-        ${show.video_url ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200">Regarder</a>` : ''}
-      </div>
-    `;
-    slider.appendChild(slide);
   });
 }
 
