@@ -22,22 +22,26 @@
   --obf-secondary: #260F03;
 }
 
-.channel-card {
-  min-height: 5.5rem;
+/* --- Styles pour les cartes d'émissions (Catalogue) --- */
+
+.show-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e5e7eb;
-  background: #f8f9fa;
-  color: #0a0a0a;
-  padding: 0.75rem;
-  position: relative;
+  border: 1px solid var(--border-light, #e5e7eb);
+  background: var(--bg-main, #ffffff);
   overflow: hidden;
-  transition: all 0.25s ease;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
 }
 
-.channel-card::before {
+.show-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Bordure colorée au dessus de la carte (comme pour les chaînes) */
+.show-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -45,53 +49,98 @@
   width: 100%;
   height: 3px;
   background-color: var(--channel-color, #000000);
-  transition: height 0.2s ease;
 }
 
-.channel-card:hover {
-  border-color: var(--channel-color, #000000);
-  background: #ffffff;
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.05);
-}
-
-.channel-card:hover::before {
-  height: 5px;
-}
-
-#featured-slider {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  gap: 1.5rem;
-  scrollbar-width: none;
-}
-#featured-slider::-webkit-scrollbar { display: none; }
-
-.featured-slide {
-  scroll-snap-align: center;
-  flex-shrink: 0;
-  width: 85vw;
-  max-width: 56rem;
-  aspect-ratio: 21 / 9;
-  position: relative;
-  background: #000;
-  border: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 2rem;
+.show-image-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
+  background-color: #f3f4f6; /* Gris clair par défaut si pas d'image */
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
 }
-.featured-slide-bg {
-  position: absolute;
-  inset: 0;
+
+.show-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.5;
+  transition: transform 0.5s ease;
 }
-.featured-slide-content {
-  position: relative;
-  z-index: 10;
+
+.show-card:hover .show-image {
+  transform: scale(1.05);
+}
+
+.show-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.show-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.show-category {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b7280);
+}
+
+.show-channel-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  background-color: #f3f4f6;
+  border-radius: 9999px; /* Style pilule même si on est globalement carré, ça aide la lisibilité ici, ou enlève le radius si tu veux rester 100% strict */
+  border-radius: 0; /* Option stricte Furnality */
+  color: var(--channel-color, #000);
+  border: 1px solid var(--channel-color, #e5e7eb);
+}
+
+.show-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-main, #111827);
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.show-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted, #4b5563);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  flex-grow: 1; /* Pousse les boutons vers le bas */
+}
+
+.show-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.show-action-btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+  background-color: transparent;
+  color: var(--text-main, #111827);
+  transition: all 0.2s ease;
+  text-align: center;
+  flex: 1; /* Prend tout l'espace disponible équitablement */
+}
+
+.show-action-btn:hover {
+  background-color: var(--text-main, #111827);
+  color: white;
+  border-color: var(--text-main, #111827);
 }
