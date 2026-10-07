@@ -1,6 +1,3 @@
-// Remplace cette URL par l'URL réelle de ton Cloudflare Worker
-const CLOUDFLARE_WORKER_URL = 'https://ton-worker.ton-domaine.workers.dev';
-
 const CHANNEL_COLOR_VARS = {
   "CenterofStream": "--cos-primary",
   "SoundofSkully": "--sos-primary",
