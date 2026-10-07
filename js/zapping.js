@@ -1,3 +1,6 @@
+// Remplace cette URL par l'URL réelle de ton Cloudflare Worker
+const CLOUDFLARE_WORKER_URL = 'https://ton-worker.ton-domaine.workers.dev';
+
 const CHANNEL_COLOR_VARS = {
   "CenterofStream": "--cos-primary",
   "SoundofSkully": "--sos-primary",
@@ -143,13 +146,6 @@ function renderFeaturedShows(shows, diffusions) {
     `;
     slider.appendChild(slide);
   });
-}
-
-if (url.pathname === '/api/shows') {
-  const { results } = await env.DB.prepare(
-    "SELECT id, nom, diffusion_id, production, image, video_url, description, podcast_url, is_featured FROM shows ORDER BY id ASC"
-  ).all();
-  return new Response(JSON.stringify(results), { headers: corsHeaders });
 }
 
 document.addEventListener("DOMContentLoaded", loadZappingData);
