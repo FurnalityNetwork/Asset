@@ -16,7 +16,6 @@ const CHANNEL_COLOR_VARS = {
 
 async function loadZappingData() {
   try {
-    // Récupération sécurisée de l'URL du Worker (depuis global.js ou valeur vide par défaut)
     const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : '';
 
     const [resDiff, resShows] = await Promise.all([
@@ -94,14 +93,12 @@ function renderShows(shows, diffusions) {
 
   shows.forEach(show => {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
-    
     const channelName = broadcaster ? broadcaster.nom : '';
     const colorVarName = CHANNEL_COLOR_VARS[channelName];
     const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
 
     const card = document.createElement("article");
     card.className = "show-card";
-    
     card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
@@ -160,12 +157,12 @@ function renderFeaturedShows(shows, diffusions) {
     const slide = document.createElement("div");
     slide.className = "featured-slide";
     slide.innerHTML = `
-      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
+      ${show.image && show.image !== 'NULL' ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
       <div class="featured-slide-content">
         ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
         <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
-        <p class="text-gray-200 max-w-lg mb-4">${show.description || ''}</p>
-        ${show.video_url && show.video_url !== 'NULL' ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200">Regarder</a>` : ''}
+        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${show.description || ''}</p>
+        ${show.video_url && show.video_url !== 'NULL' ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">Regarder</a>` : ''}
       </div>
     `;
     slider.appendChild(slide);
