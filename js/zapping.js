@@ -145,4 +145,11 @@ function renderFeaturedShows(shows, diffusions) {
   });
 }
 
+if (url.pathname === '/api/shows') {
+  const { results } = await env.DB.prepare(
+    "SELECT id, nom, diffusion_id, production, image, video_url, description, podcast_url, is_featured FROM shows ORDER BY id ASC"
+  ).all();
+  return new Response(JSON.stringify(results), { headers: corsHeaders });
+}
+
 document.addEventListener("DOMContentLoaded", loadZappingData);
