@@ -16,9 +16,12 @@ const CHANNEL_COLOR_VARS = {
 
 async function loadZappingData() {
   try {
+    // Récupération sécurisée de l'URL du Worker (depuis global.js ou valeur vide par défaut)
+    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : '';
+
     const [resDiff, resShows] = await Promise.all([
-      fetch(`${CLOUDFLARE_WORKER_URL}/api/diffusions`),
-      fetch(`${CLOUDFLARE_WORKER_URL}/api/shows`)
+      fetch(`${workerUrl}/api/diffusions`),
+      fetch(`${workerUrl}/api/shows`)
     ]);
 
     let diffusions = [];
@@ -92,20 +95,17 @@ function renderShows(shows, diffusions) {
   shows.forEach(show => {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
     
-    // Déterminer la couleur de la chaîne pour les accents
     const channelName = broadcaster ? broadcaster.nom : '';
     const colorVarName = CHANNEL_COLOR_VARS[channelName];
-    // On récupère la valeur hexadécimale via getComputedStyle, ou on met noir par défaut
     const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
 
     const card = document.createElement("article");
     card.className = "show-card";
     
-    // Application de la couleur d'accentuation en variable CSS inline
     card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
-      ${show.image ? `
+      ${show.image && show.image !== 'NULL' ? `
         <div class="show-image-container">
           <img src="${show.image}" alt="${show.nom}" class="show-image" loading="lazy" />
         </div>
@@ -138,6 +138,37 @@ function renderShows(shows, diffusions) {
     `;
     
     showsGrid.appendChild(card);
+  });
+}
+
+function renderFeaturedShows(shows, diffusions) {
+  const slider = document.getElementById("featured-slider");
+  if (!slider) return;
+
+  const featured = shows.filter(s => String(s.is_featured).toUpperCase() === "TRUE");
+  slider.innerHTML = "";
+
+  if (featured.length === 0) {
+    slider.style.display = "none";
+    return;
+  }
+  slider.style.display = "flex";
+
+  featured.forEach(show => {
+    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
+
+    const slide = document.createElement("div");
+    slide.className = "featured-slide";
+    slide.innerHTML = `
+      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
+      <div class="featured-slide-content">
+        ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
+        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
+        <p class="text-gray-200 max-w-lg mb-4">${show.description || ''}</p>
+        ${show.video_url && show.video_url !== 'NULL' ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200">Regarder</a>` : ''}
+      </div>
+    `;
+    slider.appendChild(slide);
   });
 }
 
