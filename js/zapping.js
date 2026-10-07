@@ -30,6 +30,7 @@ async function loadZappingData() {
     if (resShows.ok) {
       const shows = await resShows.json();
       renderShows(shows, diffusions);
+      renderFeaturedShows(shows, diffusions);
     }
   } catch (err) {
     console.error("Erreur de chargement Zapping:", err);
@@ -39,7 +40,6 @@ async function loadZappingData() {
 function renderChannels(items) {
   const tvGrid = document.getElementById("tv-channels-grid");
   const radioGrid = document.getElementById("radio-channels-grid");
-
   if (!tvGrid || !radioGrid) return;
 
   tvGrid.innerHTML = "";
@@ -57,13 +57,13 @@ function renderChannels(items) {
       card.rel = "noopener noreferrer";
     }
 
-    card.className = `channel-card relative flex flex-col items-center justify-center p-6 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200 ${
+    card.className = `channel-card relative flex flex-col items-center justify-center p-6 bg-white border border-gray-200 transition-all duration-200 ${
       hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-50 grayscale cursor-not-allowed"
     }`;
 
-if (colorVar) {
-  card.style.setProperty('--channel-color', `var(${colorVar})`);
-}
+    if (colorVar) {
+      card.style.setProperty('--channel-color', `var(${colorVar})`);
+    }
 
     card.innerHTML = `
       <div class="h-12 w-full flex items-center justify-center mb-3">
@@ -74,7 +74,6 @@ if (colorVar) {
           onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-gray-400\\'>${item.nom}</span>';"
         />
       </div>
-      <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">${broadcaster ? broadcaster.nom : 'Furnality'}</span>
     `;
 
     if (item.role === "TV") {
@@ -112,6 +111,37 @@ function renderShows(shows, diffusions) {
       </div>
     `;
     showsGrid.appendChild(card);
+  });
+}
+
+function renderFeaturedShows(shows, diffusions) {
+  const slider = document.getElementById("featured-slider");
+  if (!slider) return;
+
+  const featured = shows.filter(s => String(s.is_featured).toUpperCase() === "TRUE");
+  slider.innerHTML = "";
+
+  if (featured.length === 0) {
+    slider.style.display = "none";
+    return;
+  }
+  slider.style.display = "flex";
+
+  featured.forEach(show => {
+    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
+
+    const slide = document.createElement("div");
+    slide.className = "featured-slide";
+    slide.innerHTML = `
+      ${show.image ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
+      <div class="featured-slide-content">
+        ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
+        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
+        <p class="text-gray-200 max-w-lg mb-4">${show.description || ''}</p>
+        ${show.video_url ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200">Regarder</a>` : ''}
+      </div>
+    `;
+    slider.appendChild(slide);
   });
 }
 
