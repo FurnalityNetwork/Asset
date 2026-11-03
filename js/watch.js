@@ -51,7 +51,7 @@ async function initWatchPage() {
 
     const broadcaster = diffusions.find(d => d.id === currentShow.diffusion_id);
 
-    // Déterminer si c'est un format vidéo ou audio/podcast
+    // Déterminer le type de contenu (Podcast/Radio ou Vidéo)
     const isPodcast = (broadcaster && broadcaster.role === "RDO") || (currentShow.podcast_url && currentShow.podcast_url !== "NULL" && (!currentShow.video_url || currentShow.video_url === "NULL"));
 
     renderMetadata(currentShow, broadcaster);
@@ -72,14 +72,32 @@ async function initWatchPage() {
 }
 
 function renderMetadata(show, broadcaster) {
+  const logoImg = document.getElementById("broadcaster-logo");
   const badgeBroadcaster = document.getElementById("badge-broadcaster");
   const badgeCategory = document.getElementById("badge-category");
   const mediaTitle = document.getElementById("media-title");
   const mediaDesc = document.getElementById("media-description");
 
-  if (badgeBroadcaster) {
-    badgeBroadcaster.textContent = broadcaster ? broadcaster.nom : "Réseau Furnality";
+  // Affichage du logo de la chaîne / station si présent, sinon fallback sur le badge texte
+  if (broadcaster && broadcaster.logo && broadcaster.logo !== "NULL") {
+    if (logoImg) {
+      logoImg.src = broadcaster.logo;
+      logoImg.alt = broadcaster.nom;
+      logoImg.classList.remove("hidden");
+    }
+    if (badgeBroadcaster) {
+      badgeBroadcaster.classList.add("hidden");
+    }
+  } else {
+    if (logoImg) {
+      logoImg.classList.add("hidden");
+    }
+    if (badgeBroadcaster) {
+      badgeBroadcaster.textContent = broadcaster ? broadcaster.nom : "Réseau Furnality";
+      badgeBroadcaster.classList.remove("hidden");
+    }
   }
+
   if (badgeCategory) {
     badgeCategory.textContent = show.production || "Programme";
   }
@@ -98,7 +116,6 @@ function renderVideoPlayer(show) {
 
   let embedUrl = show.video_url;
 
-  // Conversion URL YouTube standard vers Embed si nécessaire
   if (embedUrl && embedUrl.includes("youtube.com/watch?v=")) {
     const videoId = embedUrl.split("v=")[1].split("&")[0];
     embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
@@ -157,7 +174,7 @@ function renderAudioPlayer(show) {
             </audio>
           </div>
         ` : `
-          <p class="text-xs font-mono text-gray-400">Le fichier audio pour ce podcast n'est pas encore disponible en lecture directe.</p>
+          <p class="text-xs font-mono text-gray-400">Le fichier audio pour ce podcast n'est pas disponible en lecture directe.</p>
         `}
       </div>
     </div>
@@ -174,7 +191,6 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
 
   grid.innerHTML = "";
 
-  // Filtrage des contenus partageant le même nom de série / production
   const relatedEpisodes = allShows.filter(s => 
     s.production === currentShow.production && String(s.id) !== String(currentShow.id)
   );
@@ -187,11 +203,9 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
     count.textContent = `${relatedEpisodes.length + 1} élément(s)`;
   }
 
-  // Ajout du contenu actif en tête de liste
   const currentCard = createEpisodeCard(currentShow, true, isPodcast);
   grid.appendChild(currentCard);
 
-  // Ajout des autres épisodes de la série
   relatedEpisodes.forEach(episode => {
     const card = createEpisodeCard(episode, false, isPodcast);
     grid.appendChild(card);
