@@ -50,7 +50,6 @@ async function initWatchPage() {
     }
 
     const broadcaster = diffusions.find(d => d.id === currentShow.diffusion_id);
-
     const isPodcast = (broadcaster && broadcaster.role === "RDO") || (currentShow.podcast_url && currentShow.podcast_url !== "NULL" && (!currentShow.video_url || currentShow.video_url === "NULL"));
 
     renderMetadata(currentShow, broadcaster);
@@ -71,39 +70,37 @@ async function initWatchPage() {
 }
 
 function renderMetadata(show, broadcaster) {
-  const logoImg = document.getElementById("broadcaster-logo");
-  const badgeBroadcaster = document.getElementById("badge-broadcaster");
-  const badgeCategory = document.getElementById("badge-category");
+  const logoImg = document.getElementById("player-channel-logo");
+  const badgeProduction = document.getElementById("badge-production");
+  const badgeSeasonEpisode = document.getElementById("badge-season-episode");
   const mediaTitle = document.getElementById("media-title");
   const mediaDesc = document.getElementById("media-description");
 
-  // Gestion dynamique du logo de la chaîne / station
+  // Affichage du logo de la chaîne dans l'en-tête du lecteur
   if (broadcaster && broadcaster.logo && broadcaster.logo !== "NULL") {
     if (logoImg) {
       logoImg.src = broadcaster.logo;
       logoImg.alt = broadcaster.nom;
       logoImg.classList.remove("hidden");
     }
-    if (badgeBroadcaster) {
-      badgeBroadcaster.classList.add("hidden");
-    }
-  } else {
-    if (logoImg) {
-      logoImg.classList.add("hidden");
-    }
-    if (badgeBroadcaster) {
-      badgeBroadcaster.textContent = broadcaster ? broadcaster.nom : "Réseau Furnality";
-      badgeBroadcaster.classList.remove("hidden");
-    }
   }
 
-  if (badgeCategory) {
-    badgeCategory.textContent = show.production || "Programme";
+  if (badgeProduction) {
+    badgeProduction.textContent = show.production || "Production indépendante";
   }
+
+  if (badgeSeasonEpisode && show.saison && show.episode) {
+    badgeSeasonEpisode.textContent = `Saison ${show.saison} • Épisode ${show.episode}`;
+    badgeSeasonEpisode.classList.remove("hidden");
+  }
+
   if (mediaTitle) {
-    mediaTitle.textContent = show.nom;
-    document.title = `${show.nom} — Zapping by Furnality`;
+    // Utilise episode_name si renseigné, sinon nom
+    const displayTitle = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
+    mediaTitle.textContent = displayTitle;
+    document.title = `${displayTitle} — Zapping by Furnality`;
   }
+
   if (mediaDesc) {
     mediaDesc.textContent = show.description || "Aucune description fournie pour ce contenu.";
   }
@@ -116,23 +113,16 @@ function renderVideoPlayer(show) {
   let embedUrl = show.video_url;
 
   if (embedUrl && embedUrl !== "NULL") {
-    // Lecteur natif HTML5 pour les fichiers MP4 directs (Cloudflare R2 ou Archive.org)
     if (embedUrl.toLowerCase().endsWith(".mp4")) {
       wrapper.innerHTML = `
         <div class="relative w-full flex justify-center bg-black">
-          <video 
-            controls 
-            controlsList="nodownload"
-            class="w-full max-h-[70vh] border border-gray-800"
-            poster="${show.image && show.image !== 'NULL' ? show.image : ''}">
+          <video controls controlsList="nodownload" class="w-full max-h-[70vh] border border-gray-800" poster="${show.image && show.image !== 'NULL' ? show.image : ''}">
             <source src="${embedUrl}" type="video/mp4">
             Votre navigateur ne supporte pas la lecture de cette vidéo.
           </video>
         </div>
       `;
-    } 
-    // Lecteur Iframe pour YouTube ou liens externes
-    else {
+    } else {
       if (embedUrl.includes("youtube.com/watch?v=")) {
         const videoId = embedUrl.split("v=")[1].split("&")[0];
         embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
@@ -143,13 +133,7 @@ function renderVideoPlayer(show) {
 
       wrapper.innerHTML = `
         <div class="relative w-full h-0 pb-[56.25%] overflow-hidden bg-black border border-gray-800">
-          <iframe 
-            src="${embedUrl}" 
-            title="${show.nom}"
-            class="absolute top-0 left-0 w-full h-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
+          <iframe src="${embedUrl}" title="${show.nom}" class="absolute top-0 left-0 w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
       `;
     }
@@ -169,7 +153,7 @@ function renderAudioPlayer(show) {
   if (!wrapper) return;
 
   wrapper.innerHTML = `
-    <div class="w-full max-w-4xl p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 bg-gray-900 border border-gray-800 my-6">
+    <div class="w-full max-w-4xl p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 bg-gray-900 border border-gray-800 my-6 shadow-xl">
       <div class="w-40 h-40 md:w-52 md:h-52 flex-shrink-0 bg-black border border-gray-800 overflow-hidden relative">
         ${show.image && show.image !== 'NULL' 
           ? `<img src="${show.image}" alt="${show.nom}" class="w-full h-full object-cover" />`
@@ -181,7 +165,7 @@ function renderAudioPlayer(show) {
         <div class="inline-flex items-center gap-2 px-2.5 py-1 bg-[#c8102e] text-white text-[10px] font-extrabold uppercase tracking-widest">
           Podcast / Flux Radio
         </div>
-        <h2 class="text-xl md:text-2xl font-bold text-white">${show.nom}</h2>
+        <h2 class="text-xl md:text-2xl font-bold text-white">${(show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom}</h2>
         
         ${show.podcast_url && show.podcast_url !== "NULL" ? `
           <div class="pt-2">
@@ -208,13 +192,17 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
 
   grid.innerHTML = "";
 
-  // Regroupe les épisodes partageant la même production / saison
-  const relatedEpisodes = allShows.filter(s => 
-    s.production === currentShow.production && String(s.id) !== String(currentShow.id)
-  );
+  const relatedEpisodes = allShows.filter(s => {
+    const sameProduction = s.production === currentShow.production;
+    const sameSeason = (s.saison === currentShow.saison);
+    const notCurrent = String(s.id) !== String(currentShow.id);
+    return sameProduction && sameSeason && notCurrent;
+  });
+
+  relatedEpisodes.sort((a, b) => (a.episode || 0) - (b.episode || 0));
 
   if (title) {
-    title.textContent = isPodcast ? "Épisodes du Podcast" : "Épisodes & Saisons";
+    title.textContent = isPodcast ? "Épisodes du Podcast" : `Saison ${currentShow.saison || '1'} • Épisodes`;
   }
 
   if (count) {
@@ -239,15 +227,18 @@ function createEpisodeCard(show, isActive, isPodcast) {
       : "bg-white text-gray-900 border-gray-200 hover:border-black"
   }`;
 
+  const titleToShow = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
+  const episodeLabel = show.episode ? `Épisode ${show.episode}` : (show.production || 'Épisode');
+
   card.innerHTML = `
     <div class="w-12 h-12 flex-shrink-0 bg-gray-100 flex items-center justify-center border border-gray-200 ${isActive ? 'bg-gray-900 text-white border-gray-800' : 'text-gray-600'}">
       <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-5 h-5"></i>
     </div>
     <div class="flex-grow min-w-0">
       <p class="text-[10px] font-mono uppercase tracking-wider ${isActive ? 'text-gray-400' : 'text-gray-500'}">
-        ${isActive ? 'En cours de lecture' : (show.production || 'Épisode')}
+        ${isActive ? 'En cours de lecture' : episodeLabel}
       </p>
-      <h4 class="text-sm font-bold truncate mt-0.5">${show.nom}</h4>
+      <h4 class="text-sm font-bold truncate mt-0.5">${titleToShow}</h4>
     </div>
   `;
 
@@ -282,10 +273,12 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
     const card = document.createElement("article");
     card.className = "show-card bg-white border border-gray-200 flex flex-col justify-between p-4 hover:border-black transition-colors";
 
+    const titleToShow = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
+
     card.innerHTML = `
       <div>
         <span class="text-[10px] font-mono uppercase text-gray-400">${show.production || 'Programme'}</span>
-        <h4 class="text-sm font-bold text-black mt-1 mb-2">${show.nom}</h4>
+        <h4 class="text-sm font-bold text-black mt-1 mb-2">${titleToShow}</h4>
         <p class="text-xs text-gray-600 line-clamp-2">${show.description || ''}</p>
       </div>
       <a href="watch.html?id=${show.id}" class="mt-4 px-3 py-1.5 bg-black text-white text-[11px] font-mono uppercase tracking-wider text-center block hover:bg-[#c8102e] transition-colors">
