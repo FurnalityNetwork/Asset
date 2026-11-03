@@ -51,7 +51,6 @@ async function initWatchPage() {
 
     const broadcaster = diffusions.find(d => d.id === currentShow.diffusion_id);
 
-    // Déterminer le type de contenu (Podcast/Radio ou Vidéo)
     const isPodcast = (broadcaster && broadcaster.role === "RDO") || (currentShow.podcast_url && currentShow.podcast_url !== "NULL" && (!currentShow.video_url || currentShow.video_url === "NULL"));
 
     renderMetadata(currentShow, broadcaster);
@@ -78,7 +77,7 @@ function renderMetadata(show, broadcaster) {
   const mediaTitle = document.getElementById("media-title");
   const mediaDesc = document.getElementById("media-description");
 
-  // Affichage du logo de la chaîne / station si présent, sinon fallback sur le badge texte
+  // Gestion dynamique du logo de la chaîne / station
   if (broadcaster && broadcaster.logo && broadcaster.logo !== "NULL") {
     if (logoImg) {
       logoImg.src = broadcaster.logo;
@@ -116,26 +115,44 @@ function renderVideoPlayer(show) {
 
   let embedUrl = show.video_url;
 
-  if (embedUrl && embedUrl.includes("youtube.com/watch?v=")) {
-    const videoId = embedUrl.split("v=")[1].split("&")[0];
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-  } else if (embedUrl && embedUrl.includes("youtu.be/")) {
-    const videoId = embedUrl.split("youtu.be/")[1].split("?")[0];
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-  }
-
   if (embedUrl && embedUrl !== "NULL") {
-    wrapper.innerHTML = `
-      <div class="relative w-full h-0 pb-[56.25%] overflow-hidden bg-black">
-        <iframe 
-          src="${embedUrl}" 
-          title="${show.nom}"
-          class="absolute top-0 left-0 w-full h-full border-0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowfullscreen>
-        </iframe>
-      </div>
-    `;
+    // Lecteur natif HTML5 pour les fichiers MP4 directs (Cloudflare R2 ou Archive.org)
+    if (embedUrl.toLowerCase().endsWith(".mp4")) {
+      wrapper.innerHTML = `
+        <div class="relative w-full flex justify-center bg-black">
+          <video 
+            controls 
+            controlsList="nodownload"
+            class="w-full max-h-[70vh] border border-gray-800"
+            poster="${show.image && show.image !== 'NULL' ? show.image : ''}">
+            <source src="${embedUrl}" type="video/mp4">
+            Votre navigateur ne supporte pas la lecture de cette vidéo.
+          </video>
+        </div>
+      `;
+    } 
+    // Lecteur Iframe pour YouTube ou liens externes
+    else {
+      if (embedUrl.includes("youtube.com/watch?v=")) {
+        const videoId = embedUrl.split("v=")[1].split("&")[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+      } else if (embedUrl.includes("youtu.be/")) {
+        const videoId = embedUrl.split("youtu.be/")[1].split("?")[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+      }
+
+      wrapper.innerHTML = `
+        <div class="relative w-full h-0 pb-[56.25%] overflow-hidden bg-black border border-gray-800">
+          <iframe 
+            src="${embedUrl}" 
+            title="${show.nom}"
+            class="absolute top-0 left-0 w-full h-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+    }
   } else {
     wrapper.innerHTML = `
       <div class="p-12 text-center space-y-3">
@@ -191,16 +208,17 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
 
   grid.innerHTML = "";
 
+  // Regroupe les épisodes partageant la même production / saison
   const relatedEpisodes = allShows.filter(s => 
     s.production === currentShow.production && String(s.id) !== String(currentShow.id)
   );
 
   if (title) {
-    title.textContent = isPodcast ? "Épisodes du Podcast" : "Épisodes & Rediffusions";
+    title.textContent = isPodcast ? "Épisodes du Podcast" : "Épisodes & Saisons";
   }
 
   if (count) {
-    count.textContent = `${relatedEpisodes.length + 1} élément(s)`;
+    count.textContent = `${relatedEpisodes.length + 1} épisode(s)`;
   }
 
   const currentCard = createEpisodeCard(currentShow, true, isPodcast);
