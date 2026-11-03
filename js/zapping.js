@@ -4,7 +4,7 @@ const CHANNEL_COLOR_VARS = {
   "Music Video Channel": "--sos-primary",
   "Direct 9": "--sos-primary",
   "Furnality News": "--sos-primary",
-  "Furnality Radio": "--cos-primary",
+  "Furnality Radio": "--rdo-primary",
   "Streaming Game FR": "--sgfr-primary",
   "Stream Animation Zone": "--saz-primary",
   "Asta of Mitologi": "--aom-primary",
