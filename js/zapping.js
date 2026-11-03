@@ -97,8 +97,16 @@ function renderShows(shows, diffusions) {
     const colorVarName = CHANNEL_COLOR_VARS[channelName];
     const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
 
+    // Détermination de la catégorie pour le filtre (basée sur le rôle du diffuseur ou un type d'événement)
+    let category = 'tv'; // par défaut
+    if (broadcaster && broadcaster.role === 'RDO') category = 'radio';
+    // Si tu as un champ type/genre dans ta BDD pour les events
+    if (show.type && show.type.toLowerCase() === 'event') category = 'event';
+
     const card = document.createElement("article");
-    card.className = "show-card";
+    // AJOUT DE "show-item" ET DE L'ATTRIBUT "data-category"
+    card.className = "show-card show-item";
+    card.setAttribute("data-category", category);
     card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
@@ -169,4 +177,45 @@ function renderFeaturedShows(shows, diffusions) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", loadZappingData);
+// === LOGIQUE DE FILTRAGE DU CATALOGUE ===
+function initFilters() {
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const showsGrid = document.getElementById('shows-grid');
+
+  if (filterBtns.length > 0 && showsGrid) {
+      filterBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+              
+              // 1. Réinitialiser tous les boutons (état inactif)
+              filterBtns.forEach(b => {
+                  b.classList.remove('bg-black', 'text-white', 'border-black', 'font-bold');
+                  b.classList.add('bg-white', 'text-gray-500', 'border-gray-200');
+              });
+              
+              // 2. Activer le bouton cliqué (état actif)
+              btn.classList.remove('bg-white', 'text-gray-500', 'border-gray-200');
+              btn.classList.add('bg-black', 'text-white', 'border-black', 'font-bold');
+
+              // 3. Trier les émissions
+              const filterValue = btn.getAttribute('data-filter');
+              const items = showsGrid.querySelectorAll('.show-item'); 
+
+              items.forEach(item => {
+                  const itemCategory = item.getAttribute('data-category');
+                  
+                  if (filterValue === 'all' || itemCategory === filterValue) {
+                      item.style.display = ''; // Affiche l'élément
+                  } else {
+                      item.style.display = 'none'; // Masque l'élément
+                  }
+              });
+          });
+      });
+  }
+}
+
+// Initialisation au chargement de la page
+document.addEventListener("DOMContentLoaded", () => {
+  loadZappingData();
+  initFilters();
+});
