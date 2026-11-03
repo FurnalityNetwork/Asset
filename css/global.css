@@ -46,6 +46,9 @@
   --c7-primary: #ff007f;      /* CANAL 7 */
   --c8-primary: #5856d6;      /* CANAL 8 */
   --obf-primary: #944613;     /* One By Furnality */
+
+   /* Palette des Station du Réseau */
+  --rdo-primary: #5a189a;      /* Furnality Radio */
 }
 
 /* Suppression stricte des arrondis & Normalisation */
