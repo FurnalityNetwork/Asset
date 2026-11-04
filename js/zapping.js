@@ -125,7 +125,10 @@ function renderShows(shows, diffusions) {
     card.className = "show-card";
     card.style.setProperty('--channel-color', colorValue);
 
-    const titleToShow = show.production || show.nom;
+    const titleToShow = show.nom;
+    const categoryToShow = (show.production && show.production !== "NULL" && show.production.trim() !== "")
+      ? show.production
+      : "Série / Programme";
 
     card.innerHTML = `
       ${show.image && show.image !== 'NULL' ? `
@@ -133,13 +136,13 @@ function renderShows(shows, diffusions) {
           <img src="${show.image}" alt="${titleToShow}" class="show-image" loading="lazy" />
         </div>
       ` : ''}
-      
+
       <div class="show-body">
         <div class="show-header">
-          <span class="show-category">Série / Programme</span>
+          <span class="show-category">${categoryToShow}</span>
           ${broadcaster ? `<span class="show-channel-badge">${broadcaster.nom}</span>` : ''}
         </div>
-        
+
         <h4 class="show-title">${titleToShow}</h4>
         
         <p class="show-desc line-clamp-3">${show.description || 'Aucune description disponible.'}</p>
