@@ -256,9 +256,37 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
     title.textContent = `Autres programmes sur ${broadcaster.nom}`;
   }
 
-  const channelShows = allShows.filter(s => 
-    s.diffusion_id === currentShow.diffusion_id && String(s.id) !== String(currentShow.id)
-  );
+  const currentKey = ((currentShow.production && currentShow.production !== "NULL" && currentShow.production.trim() !== "")
+    ? currentShow.production
+    : currentShow.nom).trim().toLowerCase();
+
+  const sameChannel = allShows.filter(s => s.diffusion_id === currentShow.diffusion_id);
+
+  // REGROUPEMENT : une seule carte par série/production, en excluant la série actuellement lue
+  // (ses épisodes sont déjà listés dans le "Guide des émissions" juste au-dessus)
+  const uniqueMap = new Map();
+  sameChannel.forEach(show => {
+    const rawKey = (show.production && show.production !== "NULL" && show.production.trim() !== "")
+      ? show.production
+      : show.nom;
+    const key = rawKey.trim().toLowerCase();
+
+    if (key === currentKey) return;
+
+    const existing = uniqueMap.get(key);
+    if (!existing) {
+      uniqueMap.set(key, show);
+      return;
+    }
+
+    const existingEp = Number(existing.episode) || Infinity;
+    const currentEp = Number(show.episode) || Infinity;
+    if (currentEp < existingEp) {
+      uniqueMap.set(key, show);
+    }
+  });
+
+  const channelShows = Array.from(uniqueMap.values());
 
   if (channelShows.length === 0) {
     grid.innerHTML = `
