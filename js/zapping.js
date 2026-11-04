@@ -94,9 +94,21 @@ function renderShows(shows, diffusions) {
   // REGROUPEMENT : On déduplique par nom de production/série pour n'afficher qu'une carte par série
   const uniqueShowsMap = new Map();
   shows.forEach(show => {
-    const key = show.production || show.nom;
-    // Si la série n'est pas encore dans la map, ou si on privilégie l'épisode 1
-    if (!uniqueShowsMap.has(key) || (show.episode && show.episode === 1)) {
+    const rawKey = (show.production && show.production !== "NULL" && show.production.trim() !== "")
+      ? show.production
+      : show.nom;
+    const key = rawKey.trim().toLowerCase();
+
+    const existing = uniqueShowsMap.get(key);
+    if (!existing) {
+      uniqueShowsMap.set(key, show);
+      return;
+    }
+
+    // On garde toujours l'épisode le plus bas (épisode 1 en priorité) comme représentant de la série
+    const existingEp = Number(existing.episode) || Infinity;
+    const currentEp = Number(show.episode) || Infinity;
+    if (currentEp < existingEp) {
       uniqueShowsMap.set(key, show);
     }
   });
