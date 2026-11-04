@@ -91,66 +91,53 @@ function renderShows(shows, diffusions) {
   if (!showsGrid) return;
   showsGrid.innerHTML = "";
 
-  // REGROUPEMENT : On déduplique par nom de production/série pour n'afficher qu'une carte par série
-  const uniqueShowsMap = new Map();
   shows.forEach(show => {
-    const rawKey = (show.production && show.production !== "NULL" && show.production.trim() !== "")
-      ? show.production
-      : show.nom;
-    const key = rawKey.trim().toLowerCase();
-
-    const existing = uniqueShowsMap.get(key);
-    if (!existing) {
-      uniqueShowsMap.set(key, show);
-      return;
-    }
-
-    // On garde toujours l'épisode le plus bas (épisode 1 en priorité) comme représentant de la série
-    const existingEp = Number(existing.episode) || Infinity;
-    const currentEp = Number(show.episode) || Infinity;
-    if (currentEp < existingEp) {
-      uniqueShowsMap.set(key, show);
-    }
-  });
-
-  const uniqueShows = Array.from(uniqueShowsMap.values());
-
-  uniqueShows.forEach(show => {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
     const channelName = broadcaster ? broadcaster.nom : '';
     const colorVarName = CHANNEL_COLOR_VARS[channelName];
     const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
 
-    const card = document.createElement("article");
-    card.className = "show-card";
-    card.style.setProperty('--channel-color', colorValue);
+    // Détermination de la catégorie pour le filtre (basée sur le rôle du diffuseur ou un type d'événement)
+    let category = 'tv'; // par défaut
+    if (broadcaster && broadcaster.role === 'RDO') category = 'radio';
+    // Si tu as un champ type/genre dans ta BDD pour les events
+    if (show.type && show.type.toLowerCase() === 'event') category = 'event';
 
-    const titleToShow = show.nom;
-    const categoryToShow = (show.production && show.production !== "NULL" && show.production.trim() !== "")
-      ? show.production
-      : "Série / Programme";
+    const card = document.createElement("article");
+    // AJOUT DE "show-item" ET DE L'ATTRIBUT "data-category"
+    card.className = "show-card show-item";
+    card.setAttribute("data-category", category);
+    card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
       ${show.image && show.image !== 'NULL' ? `
         <div class="show-image-container">
-          <img src="${show.image}" alt="${titleToShow}" class="show-image" loading="lazy" />
+          <img src="${show.image}" alt="${show.nom}" class="show-image" loading="lazy" />
         </div>
       ` : ''}
-
+      
       <div class="show-body">
         <div class="show-header">
-          <span class="show-category">${categoryToShow}</span>
+          <span class="show-category">${show.production || 'Programme'}</span>
           ${broadcaster ? `<span class="show-channel-badge">${broadcaster.nom}</span>` : ''}
         </div>
-
-        <h4 class="show-title">${titleToShow}</h4>
+        
+        <h4 class="show-title">${show.nom}</h4>
         
         <p class="show-desc line-clamp-3">${show.description || 'Aucune description disponible.'}</p>
         
         <div class="show-actions">
-          <a href="watch.html?id=${show.id}" class="show-action-btn hover:bg-[#c8102e] hover:text-white hover:border-[#c8102e] transition-colors">
-            Découvrir
-          </a>
+          ${show.video_url && show.video_url !== 'NULL' ? `
+            <a href="${show.video_url}" target="_blank" rel="noopener noreferrer" class="show-action-btn">
+              Regarder
+            </a>
+          ` : ''}
+          
+          ${show.podcast_url && show.podcast_url !== 'NULL' ? `
+            <a href="${show.podcast_url}" target="_blank" rel="noopener noreferrer" class="show-action-btn">
+              Écouter
+            </a>
+          ` : ''}
         </div>
       </div>
     `;
@@ -174,24 +161,61 @@ function renderFeaturedShows(shows, diffusions) {
 
   featured.forEach(show => {
     const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
-    const titleToShow = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
 
     const slide = document.createElement("div");
     slide.className = "featured-slide";
-    
     slide.innerHTML = `
-      ${show.image && show.image !== 'NULL' ? `<img src="${show.image}" alt="${titleToShow}" class="featured-slide-bg" />` : ''}
+      ${show.image && show.image !== 'NULL' ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
       <div class="featured-slide-content">
         ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
-        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${titleToShow}</h2>
+        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
         <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${show.description || ''}</p>
-        <a href="watch.html?id=${show.id}" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">Regarder</a>
+        ${show.video_url && show.video_url !== 'NULL' ? `<a href="${show.video_url}" target="_blank" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">Regarder</a>` : ''}
       </div>
     `;
     slider.appendChild(slide);
   });
 }
 
+// === LOGIQUE DE FILTRAGE DU CATALOGUE ===
+function initFilters() {
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const showsGrid = document.getElementById('shows-grid');
+
+  if (filterBtns.length > 0 && showsGrid) {
+      filterBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+              
+              // 1. Réinitialiser tous les boutons (état inactif)
+              filterBtns.forEach(b => {
+                  b.classList.remove('bg-black', 'text-white', 'border-black', 'font-bold');
+                  b.classList.add('bg-white', 'text-gray-500', 'border-gray-200');
+              });
+              
+              // 2. Activer le bouton cliqué (état actif)
+              btn.classList.remove('bg-white', 'text-gray-500', 'border-gray-200');
+              btn.classList.add('bg-black', 'text-white', 'border-black', 'font-bold');
+
+              // 3. Trier les émissions
+              const filterValue = btn.getAttribute('data-filter');
+              const items = showsGrid.querySelectorAll('.show-item'); 
+
+              items.forEach(item => {
+                  const itemCategory = item.getAttribute('data-category');
+                  
+                  if (filterValue === 'all' || itemCategory === filterValue) {
+                      item.style.display = ''; // Affiche l'élément
+                  } else {
+                      item.style.display = 'none'; // Masque l'élément
+                  }
+              });
+          });
+      });
+  }
+}
+
+// Initialisation au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
   loadZappingData();
+  initFilters();
 });
