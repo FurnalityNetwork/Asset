@@ -70,28 +70,53 @@ async function initWatchPage() {
 }
 
 function renderMetadata(show, broadcaster) {
-  const logoImg = document.getElementById("player-channel-logo");
-  const badgeProduction = document.getElementById("badge-production");
+  const logoImg = document.getElementById("broadcaster-logo");
+  const badgeBroadcaster = document.getElementById("badge-broadcaster");
+  const badgeCategory = document.getElementById("badge-category");
   const badgeSeasonEpisode = document.getElementById("badge-season-episode");
   const mediaTitle = document.getElementById("media-title");
   const mediaDesc = document.getElementById("media-description");
+  const heroSection = document.getElementById("player-hero-section");
 
-  // Affichage du logo de la chaîne dans l'en-tête du lecteur
+  // Couleur de la chaîne demandée, appliquée en accent sur la page de lecture
+  const colorVarName = broadcaster ? CHANNEL_COLOR_VARS[broadcaster.nom] : null;
+  const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : null;
+
+  if (colorValue && heroSection) {
+    heroSection.style.borderTop = `3px solid ${colorValue}`;
+  }
+
+  // Logo de la chaîne / station dans l'en-tête du lecteur, avec badge texte de secours
   if (broadcaster && broadcaster.logo && broadcaster.logo !== "NULL") {
     if (logoImg) {
       logoImg.src = broadcaster.logo;
       logoImg.alt = broadcaster.nom;
       logoImg.classList.remove("hidden");
     }
+  } else if (broadcaster && badgeBroadcaster) {
+    badgeBroadcaster.textContent = broadcaster.nom;
+    badgeBroadcaster.classList.remove("hidden");
+    if (colorValue) {
+      badgeBroadcaster.style.backgroundColor = colorValue;
+      badgeBroadcaster.style.color = "#fff";
+    }
   }
 
-  if (badgeProduction) {
-    badgeProduction.textContent = show.production || "Production indépendante";
+  if (badgeCategory) {
+    badgeCategory.textContent = show.production || "Production indépendante";
+    if (colorValue) {
+      badgeCategory.style.backgroundColor = colorValue;
+      badgeCategory.style.color = "#fff";
+    }
   }
 
-  if (badgeSeasonEpisode && show.saison && show.episode) {
-    badgeSeasonEpisode.textContent = `Saison ${show.saison} • Épisode ${show.episode}`;
-    badgeSeasonEpisode.classList.remove("hidden");
+  if (badgeSeasonEpisode) {
+    if (show.saison && show.episode) {
+      badgeSeasonEpisode.textContent = `Saison ${show.saison} • Épisode ${show.episode}`;
+      badgeSeasonEpisode.classList.remove("hidden");
+    } else {
+      badgeSeasonEpisode.classList.add("hidden");
+    }
   }
 
   if (mediaTitle) {
