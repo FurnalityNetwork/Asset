@@ -64,9 +64,19 @@ function seriesKey(show) {
   return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
 }
 
+// Audio si seul podcast_url est rempli, vidéo si seul video_url l'est ;
+// si les deux (ou aucun) le sont, c'est le type de la chaîne (radio / TV) qui tranche
 function isPodcastShow(show, broadcaster) {
-  return (broadcaster && broadcaster.role === "RDO") ||
-    (isFilled(show.podcast_url) && !isFilled(show.video_url));
+  const hasAudio = isFilled(show.podcast_url);
+  const hasVideo = isFilled(show.video_url);
+  if (hasAudio && !hasVideo) return true;
+  if (hasVideo && !hasAudio) return false;
+  return !!(broadcaster && broadcaster.role === "RDO");
+}
+
+// Nombre depuis une colonne INTEGER (0 reste valide, NULL -> valeur par défaut)
+function numOr(value, fallback) {
+  return isFilled(value) && !isNaN(Number(value)) ? Number(value) : fallback;
 }
 
 async function loadZappingData() {
@@ -156,8 +166,8 @@ function renderShows(shows, diffusions) {
       return;
     }
     // Le représentant de la série est son épisode le plus bas
-    const existingEp = Number(existing.episode) || Infinity;
-    const currentEp = Number(show.episode) || Infinity;
+    const existingEp = numOr(existing.episode, Infinity);
+    const currentEp = numOr(show.episode, Infinity);
     if (currentEp < existingEp) {
       uniqueShowsMap.set(key, show);
     }
@@ -226,14 +236,47 @@ function renderFeaturedShows(shows, diffusions) {
     slide.innerHTML = `
       ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="featured-slide-bg" />` : ''}
       <div class="featured-slide-content">
-        ${broadcaster && isFilled(broadcaster.logo) ? `<img src="${esc(broadcaster.logo)}" alt="${esc(broadcaster.nom)}" class="h-6 w-auto object-contain mb-3" />` : ''}
+        ${broadcaster && isFilled(broadcaster.logo) ? `
+          <div class="mb-3">
+            <span class="inline-flex items-center bg-white px-3 py-2">
+              <img src="${esc(broadcaster.logo)}" alt="${esc(broadcaster.nom)}" class="h-6 w-auto object-contain" />
+            </span>
+          </div>
+        ` : ''}
         <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${esc(show.nom)}</h2>
         <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${esc(show.description || '')}</p>
-        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">${podcast ? 'Écouter' : 'Regarder'}</a>
+        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="inline-block px-5 py-2.5 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-[#c8102e] hover:text-white transition-colors">${podcast ? 'Écouter' : 'Regarder'}</a>
       </div>
     `;
     slider.appendChild(slide);
   });
+
+  startSliderAutoplay(slider);
+}
+
+// Défilement automatique du slider (pause au survol / au toucher, retour au début en fin de piste)
+function startSliderAutoplay(slider, delay = 5000) {
+  clearInterval(slider._autoplay);
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (slider.children.length < 2) return;
+
+  const step = () => {
+    // Rien à faire si toutes les diapos tiennent déjà à l'écran
+    if (slider.scrollWidth <= slider.clientWidth + 4) return;
+    const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
+    const amount = slider.children[0].getBoundingClientRect().width + gap;
+    const atEnd = slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 4;
+    slider.scrollTo({ left: atEnd ? 0 : slider.scrollLeft + amount, behavior: "smooth" });
+  };
+
+  const start = () => { clearInterval(slider._autoplay); slider._autoplay = setInterval(step, delay); };
+  const stop = () => clearInterval(slider._autoplay);
+
+  slider.addEventListener("mouseenter", stop);
+  slider.addEventListener("mouseleave", start);
+  slider.addEventListener("touchstart", stop, { passive: true });
+  slider.addEventListener("touchend", () => setTimeout(start, delay), { passive: true });
+  start();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
