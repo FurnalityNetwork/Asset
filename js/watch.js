@@ -67,9 +67,19 @@ function seriesKey(show) {
   return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
 }
 
+// Audio si seul podcast_url est rempli, vidéo si seul video_url l'est ;
+// si les deux (ou aucun) le sont, c'est le type de la chaîne (radio / TV) qui tranche
 function isPodcastShow(show, broadcaster) {
-  return (broadcaster && broadcaster.role === "RDO") ||
-    (isFilled(show.podcast_url) && !isFilled(show.video_url));
+  const hasAudio = isFilled(show.podcast_url);
+  const hasVideo = isFilled(show.video_url);
+  if (hasAudio && !hasVideo) return true;
+  if (hasVideo && !hasAudio) return false;
+  return !!(broadcaster && broadcaster.role === "RDO");
+}
+
+// Nombre depuis une colonne INTEGER (0 reste valide, NULL -> valeur par défaut)
+function numOr(value, fallback) {
+  return isFilled(value) && !isNaN(Number(value)) ? Number(value) : fallback;
 }
 
 function pad2(n) {
@@ -263,7 +273,7 @@ function renderAudioPlayer(show) {
 
   wrapper.innerHTML = `
     <div class="show-card bg-white p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-      <div class="w-40 h-40 md:w-48 md:h-48 flex-shrink-0 bg-gray-50 border border-gray-200 overflow-hidden">
+      <div class="w-full md:w-72 aspect-video flex-shrink-0 bg-gray-50 border border-gray-200 overflow-hidden">
         ${isFilled(show.image)
           ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="w-full h-full object-cover" />`
           : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i data-lucide="radio" class="w-12 h-12"></i></div>`
@@ -274,12 +284,17 @@ function renderAudioPlayer(show) {
         <span class="show-category">Podcast / Flux radio</span>
         <h2 class="text-xl md:text-2xl font-bold text-black leading-snug">${esc(episodeTitle(show))}</h2>
 
-        ${isFilled(show.podcast_url) ? `
-          <audio controls class="w-full">
+        ${isFilled(show.podcast_url) ? (() => {
+          // Lien Spotify -> lecteur intégré ; sinon fichier audio direct
+          const spotify = String(show.podcast_url).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(episode|show|track|playlist)\/([A-Za-z0-9]+)/);
+          if (spotify) {
+            return `<iframe src="https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}" title="${esc(episodeTitle(show))}" class="w-full border-0" style="height:152px" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+          }
+          return `<audio controls class="w-full">
             <source src="${esc(show.podcast_url)}" type="audio/mpeg">
             Votre navigateur ne prend pas en charge le lecteur audio.
-          </audio>
-        ` : `
+          </audio>`;
+        })() : `
           <p class="text-xs font-mono text-gray-500">Le fichier audio pour ce podcast n'est pas disponible en lecture directe.</p>
         `}
       </div>
@@ -300,13 +315,24 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
   const episodes = allShows
     .filter(s => seriesKey(s) === key)
     .sort((a, b) => {
-      const sa = Number(a.saison) || 1, sb = Number(b.saison) || 1;
+      const sa = numOr(a.saison, 1), sb = numOr(b.saison, 1);
       if (sa !== sb) return sa - sb;
-      return (Number(a.episode) || 0) - (Number(b.episode) || 0);
+      const ea = numOr(a.episode, 0), eb = numOr(b.episode, 0);
+      if (ea !== eb) return ea - eb;
+      return Number(a.id) - Number(b.id);
     });
 
-  const seasons = [...new Set(episodes.map(e => Number(e.saison) || 1))].sort((a, b) => a - b);
-  const currentSeason = Number(currentShow.saison) || 1;
+  const seasons = [...new Set(episodes.map(e => numOr(e.saison, 1)))].sort((a, b) => a - b);
+  const currentSeason = numOr(currentShow.saison, 1);
+
+  // Bouton "Épisode suivant" dans le panneau de lecture
+  const nextBtn = document.getElementById("next-episode");
+  const idx = episodes.findIndex(e => String(e.id) === String(currentShow.id));
+  if (nextBtn && idx >= 0 && idx < episodes.length - 1) {
+    nextBtn.href = `watch.html?id=${encodeURIComponent(episodes[idx + 1].id)}`;
+    nextBtn.classList.remove("hidden");
+    nextBtn.classList.add("flex");
+  }
 
   if (title) title.textContent = isPodcast ? "Épisodes du podcast" : "Épisodes";
   if (eyebrow) eyebrow.textContent = `Guide des émissions · ${episodes.length} épisode(s)`;
@@ -314,7 +340,7 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
   function drawSeason(season) {
     grid.innerHTML = "";
     episodes
-      .filter(e => (Number(e.saison) || 1) === season)
+      .filter(e => numOr(e.saison, 1) === season)
       .forEach(e => grid.appendChild(createEpisodeCard(e, String(e.id) === String(currentShow.id), isPodcast)));
 
     if (tabs) {
@@ -363,14 +389,19 @@ function createEpisodeCard(show, isActive, isPodcast) {
 
   card.innerHTML = `
     <div class="show-body">
-      <div class="show-header">
-        <span class="show-category">${esc(episodeLabel(show))}</span>
-        ${isActive ? `<span class="show-channel-badge">En cours</span>` : ''}
+      <div class="flex items-start gap-4">
+        ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="" loading="lazy" class="w-28 aspect-video object-cover flex-shrink-0 border border-gray-200" />` : ''}
+        <div class="min-w-0 flex-grow">
+          <div class="show-header">
+            <span class="show-category">${esc(episodeLabel(show))}</span>
+            ${isActive ? `<span class="show-channel-badge">En cours</span>` : ''}
+          </div>
+          <h4 class="show-title flex items-start gap-2 mb-0">
+            <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4 mt-1 flex-shrink-0"></i>
+            <span>${esc(episodeTitle(show))}</span>
+          </h4>
+        </div>
       </div>
-      <h4 class="show-title flex items-start gap-2">
-        <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4 mt-1 flex-shrink-0"></i>
-        <span>${esc(episodeTitle(show))}</span>
-      </h4>
     </div>
   `;
 
@@ -406,8 +437,8 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
         uniqueMap.set(key, show);
         return;
       }
-      const existingEp = Number(existing.episode) || Infinity;
-      const currentEp = Number(show.episode) || Infinity;
+      const existingEp = numOr(existing.episode, Infinity);
+      const currentEp = numOr(show.episode, Infinity);
       if (currentEp < existingEp) uniqueMap.set(key, show);
     });
 
