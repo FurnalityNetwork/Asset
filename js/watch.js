@@ -325,13 +325,30 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
   const seasons = [...new Set(episodes.map(e => numOr(e.saison, 1)))].sort((a, b) => a - b);
   const currentSeason = numOr(currentShow.saison, 1);
 
-  // Bouton "Épisode suivant" dans le panneau de lecture
-  const nextBtn = document.getElementById("next-episode");
+  // "À suivre" dans le panneau de lecture : les 4 prochains épisodes de la série
+  const upnext = document.getElementById("upnext");
+  const upnextList = document.getElementById("upnext-list");
   const idx = episodes.findIndex(e => String(e.id) === String(currentShow.id));
-  if (nextBtn && idx >= 0 && idx < episodes.length - 1) {
-    nextBtn.href = `watch.html?id=${encodeURIComponent(episodes[idx + 1].id)}`;
-    nextBtn.classList.remove("hidden");
-    nextBtn.classList.add("flex");
+  const coming = idx >= 0 ? episodes.slice(idx + 1, idx + 5) : [];
+  if (upnext && upnextList && coming.length) {
+    upnextList.innerHTML = "";
+    coming.forEach(e => {
+      const link = document.createElement("a");
+      link.href = `watch.html?id=${encodeURIComponent(e.id)}`;
+      link.className = "flex items-center gap-3 group";
+      link.innerHTML = `
+        ${isFilled(e.image)
+          ? `<img src="${esc(e.image)}" alt="" loading="lazy" class="w-24 aspect-video object-cover flex-shrink-0 border border-gray-200" />`
+          : `<div class="w-24 aspect-video flex-shrink-0 bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400"><i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4"></i></div>`
+        }
+        <div class="min-w-0">
+          <p class="text-[10px] font-mono uppercase tracking-wider text-gray-400">${esc(episodeLabel(e))}</p>
+          <p class="text-sm font-bold text-black leading-snug group-hover:text-[#c8102e] transition-colors">${esc(episodeTitle(e))}</p>
+        </div>
+      `;
+      upnextList.appendChild(link);
+    });
+    upnext.classList.remove("hidden");
   }
 
   if (title) title.textContent = isPodcast ? "Épisodes du podcast" : "Épisodes";
