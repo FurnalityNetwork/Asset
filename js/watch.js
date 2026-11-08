@@ -14,6 +14,83 @@ const CHANNEL_COLOR_VARS = {
   "One by Furnality": "--obf-primary"
 };
 
+// Valeurs de secours (charte graphique) si la variable CSS n'est pas définie
+const CHANNEL_COLOR_FALLBACKS = {
+  "--cos-primary": "#0055FF",
+  "--sos-primary": "#FF1D25",
+  "--rdo-primary": "#0055FF",
+  "--sgfr-primary": "#10D050",
+  "--saz-primary": "#7F00FF",
+  "--aom-primary": "#FBC531",
+  "--td-primary": "#FF6600",
+  "--c7-primary": "#FF007F",
+  "--c8-primary": "#5856D6",
+  "--obf-primary": "#944613"
+};
+
+const DEFAULT_WORKER_URL = "https://furnality-api.darkeoftime.workers.dev";
+
+/* ---------- Utilitaires ---------- */
+
+function getChannelColor(name) {
+  if (!name) return "#000000";
+  const lower = String(name).trim().toLowerCase();
+  const key = Object.keys(CHANNEL_COLOR_VARS).find(k => lower.startsWith(k.toLowerCase()));
+  if (!key) return "#000000";
+  const varName = CHANNEL_COLOR_VARS[key];
+  const fromCss = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return fromCss || CHANNEL_COLOR_FALLBACKS[varName] || "#000000";
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isFilled(value) {
+  return value !== null && value !== undefined &&
+    String(value).trim() !== "" && String(value).trim().toUpperCase() !== "NULL";
+}
+
+// Comparaison d'id tolérante (nombre ou texte)
+function findBroadcaster(diffusions, show) {
+  const wanted = String(show.diffusion_id).trim();
+  return diffusions.find(d => String(d.id).trim() === wanted);
+}
+
+// Une série = même chaîne (diffusion_id) + même titre de série (nom).
+// Ça empêche de mélanger une émission TV et une émission radio.
+function seriesKey(show) {
+  return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
+}
+
+function isPodcastShow(show, broadcaster) {
+  return (broadcaster && broadcaster.role === "RDO") ||
+    (isFilled(show.podcast_url) && !isFilled(show.video_url));
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Titre de l'épisode : episode_name si renseigné, sinon "Épisode N", sinon le titre de la série
+function episodeTitle(show) {
+  if (isFilled(show.episode_name)) return String(show.episode_name).trim();
+  if (isFilled(show.episode)) return `Épisode ${show.episode}`;
+  return show.nom;
+}
+
+function episodeLabel(show) {
+  const season = isFilled(show.saison) ? `S${pad2(show.saison)}` : null;
+  const ep = isFilled(show.episode) ? `Épisode ${pad2(show.episode)}` : null;
+  return [season, ep].filter(Boolean).join(" · ") || "Épisode";
+}
+
+/* ---------- Initialisation ---------- */
+
 document.addEventListener("DOMContentLoaded", () => {
   initWatchPage();
 });
@@ -28,7 +105,7 @@ async function initWatchPage() {
   }
 
   try {
-    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : 'https://furnality-api.darkeoftime.workers.dev';
+    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
 
     const [resDiff, resShows] = await Promise.all([
       fetch(`${workerUrl}/api/diffusions`),
@@ -49,19 +126,29 @@ async function initWatchPage() {
       return;
     }
 
-    const broadcaster = diffusions.find(d => d.id === currentShow.diffusion_id);
-    const isPodcast = (broadcaster && broadcaster.role === "RDO") || (currentShow.podcast_url && currentShow.podcast_url !== "NULL" && (!currentShow.video_url || currentShow.video_url === "NULL"));
+    const broadcaster = findBroadcaster(diffusions, currentShow);
+    if (!broadcaster) {
+      console.warn("Chaîne introuvable pour diffusion_id =", currentShow.diffusion_id);
+    }
+    const podcast = isPodcastShow(currentShow, broadcaster);
 
-    renderMetadata(currentShow, broadcaster);
-    
-    if (isPodcast) {
+    // Couleur de la chaîne : utilisée par la barre des cartes et les badges
+    const channelColor = getChannelColor(broadcaster ? broadcaster.nom : "");
+    const main = document.getElementById("watch-main");
+    if (main) main.style.setProperty("--channel-color", channelColor);
+
+    renderMetadata(currentShow, broadcaster, channelColor);
+
+    if (podcast) {
       renderAudioPlayer(currentShow);
     } else {
       renderVideoPlayer(currentShow);
     }
 
-    renderEpisodes(currentShow, shows, isPodcast);
+    renderEpisodes(currentShow, shows, podcast);
     renderChannelShows(currentShow, shows, broadcaster);
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 
   } catch (err) {
     console.error("Erreur d'initialisation de la page watch:", err);
@@ -69,25 +156,53 @@ async function initWatchPage() {
   }
 }
 
-function renderMetadata(show, broadcaster) {
-  const logoImg = document.getElementById("broadcaster-logo");
-  const badgeBroadcaster = document.getElementById("badge-broadcaster");
-  const badgeCategory = document.getElementById("badge-category");
-  const badgeSeasonEpisode = document.getElementById("badge-season-episode");
+/* ---------- En-tête + panneau de l'épisode ---------- */
+
+function renderMetadata(show, broadcaster, channelColor) {
+  const pill = document.getElementById("hero-pill");
   const mediaTitle = document.getElementById("media-title");
   const mediaDesc = document.getElementById("media-description");
-  const heroSection = document.getElementById("player-hero-section");
+  const episodeTitleEl = document.getElementById("episode-title");
+  const badgeSeasonEpisode = document.getElementById("badge-season-episode");
+  const badgeProduction = document.getElementById("badge-production");
+  const logoImg = document.getElementById("broadcaster-logo");
+  const badgeBroadcaster = document.getElementById("badge-broadcaster");
 
-  // Couleur de la chaîne demandée, appliquée en accent sur la page de lecture
-  const colorVarName = broadcaster ? CHANNEL_COLOR_VARS[broadcaster.nom] : null;
-  const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : null;
-
-  if (colorValue && heroSection) {
-    heroSection.style.borderTop = `3px solid ${colorValue}`;
+  // En-tête simple : pastille de la chaîne, titre de la série, description
+  if (pill) {
+    pill.textContent = broadcaster ? broadcaster.nom : "Zapping";
+    pill.style.backgroundColor = channelColor;
+    pill.style.color = "#fff";
   }
 
-  // Logo de la chaîne / station dans l'en-tête du lecteur, avec badge texte de secours
-  if (broadcaster && broadcaster.logo && broadcaster.logo !== "NULL") {
+  if (mediaTitle) {
+    mediaTitle.textContent = show.nom;
+    document.title = `${show.nom} — Zapping by Furnality`;
+  }
+
+  if (mediaDesc) {
+    mediaDesc.textContent = isFilled(show.description) ? show.description : "";
+  }
+
+  // Panneau "En cours de lecture"
+  if (episodeTitleEl) {
+    episodeTitleEl.textContent = episodeTitle(show);
+  }
+
+  if (badgeSeasonEpisode) {
+    if (isFilled(show.saison) || isFilled(show.episode)) {
+      badgeSeasonEpisode.textContent = episodeLabel(show);
+      badgeSeasonEpisode.classList.remove("hidden");
+    }
+  }
+
+  if (badgeProduction && isFilled(show.production)) {
+    badgeProduction.textContent = show.production;
+    badgeProduction.classList.remove("hidden");
+  }
+
+  // Logo de la chaîne, avec badge texte de secours
+  if (broadcaster && isFilled(broadcaster.logo)) {
     if (logoImg) {
       logoImg.src = broadcaster.logo;
       logoImg.alt = broadcaster.nom;
@@ -96,40 +211,10 @@ function renderMetadata(show, broadcaster) {
   } else if (broadcaster && badgeBroadcaster) {
     badgeBroadcaster.textContent = broadcaster.nom;
     badgeBroadcaster.classList.remove("hidden");
-    if (colorValue) {
-      badgeBroadcaster.style.backgroundColor = colorValue;
-      badgeBroadcaster.style.color = "#fff";
-    }
-  }
-
-  if (badgeCategory) {
-    badgeCategory.textContent = show.production || "Production indépendante";
-    if (colorValue) {
-      badgeCategory.style.backgroundColor = colorValue;
-      badgeCategory.style.color = "#fff";
-    }
-  }
-
-  if (badgeSeasonEpisode) {
-    if (show.saison && show.episode) {
-      badgeSeasonEpisode.textContent = `Saison ${show.saison} • Épisode ${show.episode}`;
-      badgeSeasonEpisode.classList.remove("hidden");
-    } else {
-      badgeSeasonEpisode.classList.add("hidden");
-    }
-  }
-
-  if (mediaTitle) {
-    // Utilise episode_name si renseigné, sinon nom
-    const displayTitle = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
-    mediaTitle.textContent = displayTitle;
-    document.title = `${displayTitle} — Zapping by Furnality`;
-  }
-
-  if (mediaDesc) {
-    mediaDesc.textContent = show.description || "Aucune description fournie pour ce contenu.";
   }
 }
+
+/* ---------- Lecteurs ---------- */
 
 function renderVideoPlayer(show) {
   const wrapper = document.getElementById("player-wrapper");
@@ -137,12 +222,12 @@ function renderVideoPlayer(show) {
 
   let embedUrl = show.video_url;
 
-  if (embedUrl && embedUrl !== "NULL") {
+  if (isFilled(embedUrl)) {
     if (embedUrl.toLowerCase().endsWith(".mp4")) {
       wrapper.innerHTML = `
-        <div class="relative w-full flex justify-center bg-black">
-          <video controls controlsList="nodownload" class="w-full max-h-[70vh] border border-gray-800" poster="${show.image && show.image !== 'NULL' ? show.image : ''}">
-            <source src="${embedUrl}" type="video/mp4">
+        <div class="relative w-full bg-black border border-gray-200">
+          <video controls controlsList="nodownload" class="w-full aspect-video bg-black" poster="${isFilled(show.image) ? esc(show.image) : ''}">
+            <source src="${esc(embedUrl)}" type="video/mp4">
             Votre navigateur ne supporte pas la lecture de cette vidéo.
           </video>
         </div>
@@ -157,19 +242,18 @@ function renderVideoPlayer(show) {
       }
 
       wrapper.innerHTML = `
-        <div class="relative w-full h-0 pb-[56.25%] overflow-hidden bg-black border border-gray-800">
-          <iframe src="${embedUrl}" title="${show.nom}" class="absolute top-0 left-0 w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <div class="relative w-full aspect-video overflow-hidden bg-black border border-gray-200">
+          <iframe src="${esc(embedUrl)}" title="${esc(show.nom)}" class="absolute inset-0 w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
       `;
     }
   } else {
     wrapper.innerHTML = `
-      <div class="p-12 text-center space-y-3">
-        <i data-lucide="video-off" class="w-10 h-10 text-gray-600 mx-auto"></i>
-        <p class="text-sm text-gray-400 font-mono">Le flux vidéo pour cette émission n'est pas accessible directement.</p>
+      <div class="aspect-video w-full bg-gray-50 border border-gray-200 flex flex-col items-center justify-center gap-3 text-center p-8">
+        <i data-lucide="video-off" class="w-10 h-10 text-gray-400"></i>
+        <p class="text-sm text-gray-500 font-mono">Le flux vidéo pour cette émission n'est pas accessible directement.</p>
       </div>
     `;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 }
 
@@ -178,97 +262,122 @@ function renderAudioPlayer(show) {
   if (!wrapper) return;
 
   wrapper.innerHTML = `
-    <div class="w-full max-w-4xl p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 bg-gray-900 border border-gray-800 my-6 shadow-xl">
-      <div class="w-40 h-40 md:w-52 md:h-52 flex-shrink-0 bg-black border border-gray-800 overflow-hidden relative">
-        ${show.image && show.image !== 'NULL' 
-          ? `<img src="${show.image}" alt="${show.nom}" class="w-full h-full object-cover" />`
-          : `<div class="w-full h-full flex items-center justify-center text-gray-600"><i data-lucide="radio" class="w-12 h-12"></i></div>`
+    <div class="show-card bg-white p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
+      <div class="w-40 h-40 md:w-48 md:h-48 flex-shrink-0 bg-gray-50 border border-gray-200 overflow-hidden">
+        ${isFilled(show.image)
+          ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="w-full h-full object-cover" />`
+          : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i data-lucide="radio" class="w-12 h-12"></i></div>`
         }
       </div>
-      
-      <div class="flex-grow w-full space-y-4 text-center md:text-left">
-        <div class="inline-flex items-center gap-2 px-2.5 py-1 bg-[#c8102e] text-white text-[10px] font-extrabold uppercase tracking-widest">
-          Podcast / Flux Radio
-        </div>
-        <h2 class="text-xl md:text-2xl font-bold text-white">${(show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom}</h2>
-        
-        ${show.podcast_url && show.podcast_url !== "NULL" ? `
-          <div class="pt-2">
-            <audio controls class="w-full border border-gray-700 bg-black">
-              <source src="${show.podcast_url}" type="audio/mpeg">
-              Votre navigateur ne prend pas en charge le lecteur audio.
-            </audio>
-          </div>
+
+      <div class="flex-grow w-full space-y-3 text-center md:text-left">
+        <span class="show-category">Podcast / Flux radio</span>
+        <h2 class="text-xl md:text-2xl font-bold text-black leading-snug">${esc(episodeTitle(show))}</h2>
+
+        ${isFilled(show.podcast_url) ? `
+          <audio controls class="w-full">
+            <source src="${esc(show.podcast_url)}" type="audio/mpeg">
+            Votre navigateur ne prend pas en charge le lecteur audio.
+          </audio>
         ` : `
-          <p class="text-xs font-mono text-gray-400">Le fichier audio pour ce podcast n'est pas disponible en lecture directe.</p>
+          <p class="text-xs font-mono text-gray-500">Le fichier audio pour ce podcast n'est pas disponible en lecture directe.</p>
         `}
       </div>
     </div>
   `;
-
-  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+
+/* ---------- Épisodes de la série (avec onglets de saison) ---------- */
 
 function renderEpisodes(currentShow, allShows, isPodcast) {
   const grid = document.getElementById("episodes-grid");
   const title = document.getElementById("episodes-title");
-  const count = document.getElementById("episodes-count");
+  const eyebrow = document.getElementById("episodes-eyebrow");
+  const tabs = document.getElementById("season-tabs");
   if (!grid) return;
 
-  grid.innerHTML = "";
+  const key = seriesKey(currentShow);
+  const episodes = allShows
+    .filter(s => seriesKey(s) === key)
+    .sort((a, b) => {
+      const sa = Number(a.saison) || 1, sb = Number(b.saison) || 1;
+      if (sa !== sb) return sa - sb;
+      return (Number(a.episode) || 0) - (Number(b.episode) || 0);
+    });
 
-  const relatedEpisodes = allShows.filter(s => {
-    const sameProduction = s.production === currentShow.production;
-    const sameSeason = (s.saison === currentShow.saison);
-    const notCurrent = String(s.id) !== String(currentShow.id);
-    return sameProduction && sameSeason && notCurrent;
-  });
+  const seasons = [...new Set(episodes.map(e => Number(e.saison) || 1))].sort((a, b) => a - b);
+  const currentSeason = Number(currentShow.saison) || 1;
 
-  relatedEpisodes.sort((a, b) => (a.episode || 0) - (b.episode || 0));
+  if (title) title.textContent = isPodcast ? "Épisodes du podcast" : "Épisodes";
+  if (eyebrow) eyebrow.textContent = `Guide des émissions · ${episodes.length} épisode(s)`;
 
-  if (title) {
-    title.textContent = isPodcast ? "Épisodes du Podcast" : `Saison ${currentShow.saison || '1'} • Épisodes`;
+  function drawSeason(season) {
+    grid.innerHTML = "";
+    episodes
+      .filter(e => (Number(e.saison) || 1) === season)
+      .forEach(e => grid.appendChild(createEpisodeCard(e, String(e.id) === String(currentShow.id), isPodcast)));
+
+    if (tabs) {
+      tabs.querySelectorAll("button").forEach(btn => {
+        const active = Number(btn.dataset.season) === season;
+        btn.setAttribute("aria-selected", String(active));
+        btn.className = `pb-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
+          active ? "border-black text-black" : "border-transparent text-gray-400 hover:text-black"
+        }`;
+      });
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
-  if (count) {
-    count.textContent = `${relatedEpisodes.length + 1} épisode(s)`;
+  if (tabs) {
+    tabs.innerHTML = "";
+    if (seasons.length > 1) {
+      seasons.forEach(season => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("role", "tab");
+        btn.dataset.season = season;
+        btn.textContent = `Saison ${season}`;
+        btn.addEventListener("click", () => drawSeason(season));
+        tabs.appendChild(btn);
+      });
+    } else {
+      const label = document.createElement("span");
+      label.className = "pb-4 text-xs font-bold uppercase tracking-wider text-black";
+      label.textContent = `Saison ${seasons[0] || currentSeason}`;
+      tabs.appendChild(label);
+    }
   }
 
-  const currentCard = createEpisodeCard(currentShow, true, isPodcast);
-  grid.appendChild(currentCard);
-
-  relatedEpisodes.forEach(episode => {
-    const card = createEpisodeCard(episode, false, isPodcast);
-    grid.appendChild(card);
-  });
+  drawSeason(currentSeason);
 }
 
 function createEpisodeCard(show, isActive, isPodcast) {
   const card = document.createElement("a");
-  card.href = `watch.html?id=${show.id}`;
-  card.className = `p-4 border transition-all duration-200 flex items-start gap-4 ${
-    isActive 
-      ? "bg-black text-white border-black" 
-      : "bg-white text-gray-900 border-gray-200 hover:border-black"
-  }`;
-
-  const titleToShow = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
-  const episodeLabel = show.episode ? `Épisode ${show.episode}` : (show.production || 'Épisode');
+  card.href = `watch.html?id=${encodeURIComponent(show.id)}`;
+  card.className = "show-card";
+  if (isActive) {
+    card.style.borderColor = "#111";
+    card.style.boxShadow = "inset 0 0 0 1px #111";
+  }
 
   card.innerHTML = `
-    <div class="w-12 h-12 flex-shrink-0 bg-gray-100 flex items-center justify-center border border-gray-200 ${isActive ? 'bg-gray-900 text-white border-gray-800' : 'text-gray-600'}">
-      <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-5 h-5"></i>
-    </div>
-    <div class="flex-grow min-w-0">
-      <p class="text-[10px] font-mono uppercase tracking-wider ${isActive ? 'text-gray-400' : 'text-gray-500'}">
-        ${isActive ? 'En cours de lecture' : episodeLabel}
-      </p>
-      <h4 class="text-sm font-bold truncate mt-0.5">${titleToShow}</h4>
+    <div class="show-body">
+      <div class="show-header">
+        <span class="show-category">${esc(episodeLabel(show))}</span>
+        ${isActive ? `<span class="show-channel-badge">En cours</span>` : ''}
+      </div>
+      <h4 class="show-title flex items-start gap-2">
+        <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4 mt-1 flex-shrink-0"></i>
+        <span>${esc(episodeTitle(show))}</span>
+      </h4>
     </div>
   `;
 
   return card;
 }
+
+/* ---------- Autres programmes de la même chaîne ---------- */
 
 function renderChannelShows(currentShow, allShows, broadcaster) {
   const grid = document.getElementById("channel-shows-grid");
@@ -281,41 +390,32 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
     title.textContent = `Autres programmes sur ${broadcaster.nom}`;
   }
 
-  const currentKey = ((currentShow.production && currentShow.production !== "NULL" && currentShow.production.trim() !== "")
-    ? currentShow.production
-    : currentShow.nom).trim().toLowerCase();
+  const currentKey = seriesKey(currentShow);
+  const currentDiffusion = String(currentShow.diffusion_id).trim();
 
-  const sameChannel = allShows.filter(s => s.diffusion_id === currentShow.diffusion_id);
-
-  // REGROUPEMENT : une seule carte par série/production, en excluant la série actuellement lue
-  // (ses épisodes sont déjà listés dans le "Guide des émissions" juste au-dessus)
+  // Une seule carte par série, uniquement sur la même chaîne, hors série en cours
   const uniqueMap = new Map();
-  sameChannel.forEach(show => {
-    const rawKey = (show.production && show.production !== "NULL" && show.production.trim() !== "")
-      ? show.production
-      : show.nom;
-    const key = rawKey.trim().toLowerCase();
+  allShows
+    .filter(s => String(s.diffusion_id).trim() === currentDiffusion)
+    .forEach(show => {
+      const key = seriesKey(show);
+      if (key === currentKey) return;
 
-    if (key === currentKey) return;
-
-    const existing = uniqueMap.get(key);
-    if (!existing) {
-      uniqueMap.set(key, show);
-      return;
-    }
-
-    const existingEp = Number(existing.episode) || Infinity;
-    const currentEp = Number(show.episode) || Infinity;
-    if (currentEp < existingEp) {
-      uniqueMap.set(key, show);
-    }
-  });
+      const existing = uniqueMap.get(key);
+      if (!existing) {
+        uniqueMap.set(key, show);
+        return;
+      }
+      const existingEp = Number(existing.episode) || Infinity;
+      const currentEp = Number(show.episode) || Infinity;
+      if (currentEp < existingEp) uniqueMap.set(key, show);
+    });
 
   const channelShows = Array.from(uniqueMap.values());
 
   if (channelShows.length === 0) {
     grid.innerHTML = `
-      <div class="col-span-full p-8 bg-white border border-gray-200 text-center text-xs font-mono text-gray-500">
+      <div class="col-span-full p-8 bg-gray-50 border border-gray-200 text-center text-xs font-mono text-gray-500">
         Aucun autre programme n'est répertorié pour cette chaîne actuellement.
       </div>
     `;
@@ -323,43 +423,63 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
   }
 
   channelShows.forEach(show => {
+    const podcast = isPodcastShow(show, broadcaster);
     const card = document.createElement("article");
-    card.className = "show-card bg-white border border-gray-200 flex flex-col justify-between p-4 hover:border-black transition-colors";
-
-    const titleToShow = (show.episode_name && show.episode_name !== "NULL") ? show.episode_name : show.nom;
+    card.className = "show-card";
 
     card.innerHTML = `
-      <div>
-        <span class="text-[10px] font-mono uppercase text-gray-400">${show.production || 'Programme'}</span>
-        <h4 class="text-sm font-bold text-black mt-1 mb-2">${titleToShow}</h4>
-        <p class="text-xs text-gray-600 line-clamp-2">${show.description || ''}</p>
+      ${isFilled(show.image) ? `
+        <div class="show-image-container">
+          <img src="${esc(show.image)}" alt="${esc(show.nom)}" class="show-image" loading="lazy" />
+        </div>
+      ` : ''}
+
+      <div class="show-body">
+        <div class="show-header">
+          <span class="show-category">${esc(isFilled(show.production) ? show.production : 'Programme')}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ''}
+        </div>
+
+        <h4 class="show-title">${esc(show.nom)}</h4>
+
+        <p class="show-desc line-clamp-3">${esc(show.description || '')}</p>
+
+        <div class="show-actions">
+          <a href="watch.html?id=${encodeURIComponent(show.id)}" class="show-action-btn">
+            ${podcast ? 'Écouter' : 'Regarder'}
+          </a>
+        </div>
       </div>
-      <a href="watch.html?id=${show.id}" class="mt-4 px-3 py-1.5 bg-black text-white text-[11px] font-mono uppercase tracking-wider text-center block hover:bg-[#c8102e] transition-colors">
-        Découvrir
-      </a>
     `;
 
     grid.appendChild(card);
   });
-
-  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+
+/* ---------- Erreur ---------- */
 
 function renderError(message) {
   const wrapper = document.getElementById("player-wrapper");
-  const meta = document.getElementById("show-metadata");
 
   if (wrapper) {
     wrapper.innerHTML = `
-      <div class="p-12 text-center space-y-3">
-        <i data-lucide="alert-circle" class="w-10 h-10 text-red-500 mx-auto"></i>
-        <p class="text-sm text-gray-300 font-mono">${message}</p>
-        <a href="https://furnalitynetwork.github.io/Zapping" class="inline-block mt-4 px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-wider">
+      <div class="aspect-video w-full bg-gray-50 border border-gray-200 flex flex-col items-center justify-center gap-3 text-center p-8">
+        <i data-lucide="alert-circle" class="w-10 h-10 text-[#c8102e]"></i>
+        <p class="text-sm text-gray-600 font-mono">${esc(message)}</p>
+        <a href="https://furnalitynetwork.github.io/Zapping" class="inline-block mt-2 px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-[#c8102e] transition-colors">
           Retourner au catalogue Zapping
         </a>
       </div>
     `;
   }
-  if (meta) meta.style.display = "none";
+
+  ["episode-panel", "episodes-section", "channel-shows-section"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  const title = document.getElementById("media-title");
+  if (title) title.textContent = "Contenu indisponible";
+
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
