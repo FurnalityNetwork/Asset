@@ -14,9 +14,64 @@ const CHANNEL_COLOR_VARS = {
   "One by Furnality": "--obf-primary"
 };
 
+// Valeurs de secours (charte graphique) si la variable CSS n'est pas définie
+const CHANNEL_COLOR_FALLBACKS = {
+  "--cos-primary": "#0055FF",
+  "--sos-primary": "#FF1D25",
+  "--rdo-primary": "#0055FF",
+  "--sgfr-primary": "#10D050",
+  "--saz-primary": "#7F00FF",
+  "--aom-primary": "#FBC531",
+  "--td-primary": "#FF6600",
+  "--c7-primary": "#FF007F",
+  "--c8-primary": "#5856D6",
+  "--obf-primary": "#944613"
+};
+
+const DEFAULT_WORKER_URL = "https://furnality-api.darkeoftime.workers.dev";
+
+function getChannelColor(name) {
+  if (!name) return "#000000";
+  const lower = String(name).trim().toLowerCase();
+  const key = Object.keys(CHANNEL_COLOR_VARS).find(k => lower.startsWith(k.toLowerCase()));
+  if (!key) return "#000000";
+  const varName = CHANNEL_COLOR_VARS[key];
+  const fromCss = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return fromCss || CHANNEL_COLOR_FALLBACKS[varName] || "#000000";
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isFilled(value) {
+  return value !== null && value !== undefined &&
+    String(value).trim() !== "" && String(value).trim().toUpperCase() !== "NULL";
+}
+
+// Comparaison d'id tolérante (nombre ou texte)
+function findBroadcaster(diffusions, show) {
+  const wanted = String(show.diffusion_id).trim();
+  return diffusions.find(d => String(d.id).trim() === wanted);
+}
+
+// Une série = même chaîne (diffusion_id) + même titre de série (nom)
+function seriesKey(show) {
+  return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
+}
+
+function isPodcastShow(show, broadcaster) {
+  return (broadcaster && broadcaster.role === "RDO") ||
+    (isFilled(show.podcast_url) && !isFilled(show.video_url));
+}
+
 async function loadZappingData() {
   try {
-    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : '';
+    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
 
     const [resDiff, resShows] = await Promise.all([
       fetch(`${workerUrl}/api/diffusions`),
@@ -69,9 +124,9 @@ function renderChannels(items) {
 
     card.innerHTML = `
       <div class="h-12 w-full flex items-center justify-center mb-3">
-        <img 
-          src="${item.logo}" 
-          alt="${item.nom}" 
+        <img
+          src="${item.logo}"
+          alt="${item.nom}"
           class="max-h-full max-w-full object-contain"
           onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-gray-400\\'>${item.nom}</span>';"
         />
@@ -91,22 +146,16 @@ function renderShows(shows, diffusions) {
   if (!showsGrid) return;
   showsGrid.innerHTML = "";
 
-  // REGROUPEMENT : une seule carte par série / podcast (clé = production, sinon nom)
-  // pour ne pas afficher la même série en 150 000 exemplaires sur le catalogue
+  // REGROUPEMENT : une seule carte par série / podcast (même chaîne + même titre de série)
   const uniqueShowsMap = new Map();
   shows.forEach(show => {
-    const rawKey = (show.production && show.production !== "NULL" && show.production.trim() !== "")
-      ? show.production
-      : show.nom;
-    const key = rawKey.trim().toLowerCase();
-
+    const key = seriesKey(show);
     const existing = uniqueShowsMap.get(key);
     if (!existing) {
       uniqueShowsMap.set(key, show);
       return;
     }
-
-    // On garde toujours l'épisode le plus bas (épisode 1 en priorité) comme représentant de la série
+    // Le représentant de la série est son épisode le plus bas
     const existingEp = Number(existing.episode) || Infinity;
     const currentEp = Number(show.episode) || Infinity;
     if (currentEp < existingEp) {
@@ -114,41 +163,38 @@ function renderShows(shows, diffusions) {
     }
   });
 
-  const uniqueShows = Array.from(uniqueShowsMap.values());
-
-  uniqueShows.forEach(show => {
-    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
-    const channelName = broadcaster ? broadcaster.nom : '';
-    const colorVarName = CHANNEL_COLOR_VARS[channelName];
-    const colorValue = colorVarName ? getComputedStyle(document.documentElement).getPropertyValue(colorVarName).trim() : '#000000';
-
-    const isPodcastShow = (broadcaster && broadcaster.role === "RDO") ||
-      (show.podcast_url && show.podcast_url !== "NULL" && (!show.video_url || show.video_url === "NULL"));
+  Array.from(uniqueShowsMap.values()).forEach(show => {
+    const broadcaster = findBroadcaster(diffusions, show);
+    if (!broadcaster) {
+      console.warn("Chaîne introuvable pour diffusion_id =", show.diffusion_id, "(show:", show.nom, ")");
+    }
+    const colorValue = getChannelColor(broadcaster ? broadcaster.nom : "");
+    const podcast = isPodcastShow(show, broadcaster);
 
     const card = document.createElement("article");
     card.className = "show-card";
     card.style.setProperty('--channel-color', colorValue);
 
     card.innerHTML = `
-      ${show.image && show.image !== 'NULL' ? `
+      ${isFilled(show.image) ? `
         <div class="show-image-container">
-          <img src="${show.image}" alt="${show.nom}" class="show-image" loading="lazy" />
+          <img src="${esc(show.image)}" alt="${esc(show.nom)}" class="show-image" loading="lazy" />
         </div>
       ` : ''}
 
       <div class="show-body">
         <div class="show-header">
-          <span class="show-category">${show.production || 'Programme'}</span>
-          ${broadcaster ? `<span class="show-channel-badge">${broadcaster.nom}</span>` : ''}
+          <span class="show-category">${esc(isFilled(show.production) ? show.production : 'Programme')}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ''}
         </div>
 
-        <h4 class="show-title">${show.nom}</h4>
+        <h4 class="show-title">${esc(show.nom)}</h4>
 
-        <p class="show-desc line-clamp-3">${show.description || 'Aucune description disponible.'}</p>
+        <p class="show-desc line-clamp-3">${esc(show.description || 'Aucune description disponible.')}</p>
 
         <div class="show-actions">
-          <a href="watch.html?id=${show.id}" class="show-action-btn">
-            ${isPodcastShow ? 'Écouter' : 'Regarder'}
+          <a href="watch.html?id=${encodeURIComponent(show.id)}" class="show-action-btn">
+            ${podcast ? 'Écouter' : 'Regarder'}
           </a>
         </div>
       </div>
@@ -172,26 +218,24 @@ function renderFeaturedShows(shows, diffusions) {
   slider.style.display = "flex";
 
   featured.forEach(show => {
-    const broadcaster = diffusions.find(d => d.id === show.diffusion_id);
-    const isPodcastShow = (broadcaster && broadcaster.role === "RDO") ||
-      (show.podcast_url && show.podcast_url !== "NULL" && (!show.video_url || show.video_url === "NULL"));
+    const broadcaster = findBroadcaster(diffusions, show);
+    const podcast = isPodcastShow(show, broadcaster);
 
     const slide = document.createElement("div");
     slide.className = "featured-slide";
     slide.innerHTML = `
-      ${show.image && show.image !== 'NULL' ? `<img src="${show.image}" alt="${show.nom}" class="featured-slide-bg" />` : ''}
+      ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="featured-slide-bg" />` : ''}
       <div class="featured-slide-content">
-        ${broadcaster && broadcaster.logo ? `<img src="${broadcaster.logo}" alt="${broadcaster.nom}" class="h-6 w-auto object-contain mb-3" />` : ''}
-        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${show.nom}</h2>
-        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${show.description || ''}</p>
-        <a href="watch.html?id=${show.id}" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">${isPodcastShow ? 'Écouter' : 'Regarder'}</a>
+        ${broadcaster && isFilled(broadcaster.logo) ? `<img src="${esc(broadcaster.logo)}" alt="${esc(broadcaster.nom)}" class="h-6 w-auto object-contain mb-3" />` : ''}
+        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${esc(show.nom)}</h2>
+        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${esc(show.description || '')}</p>
+        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="primary-button bg-white text-black border-white hover:bg-gray-200 inline-block">${podcast ? 'Écouter' : 'Regarder'}</a>
       </div>
     `;
     slider.appendChild(slide);
   });
 }
 
-// Initialisation au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
   loadZappingData();
 });
