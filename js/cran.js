@@ -1,7 +1,7 @@
 /**
-- CRAN — Conseil de Régulation de l'Audiovisuel et du Numérique
-- Données : Cloudflare Worker + D1 (même API que Furnality)
-- Aucune dépendance externe.
+ * CRAN — Conseil de Régulation de l'Audiovisuel et du Numérique
+ * Données : Cloudflare Worker + D1 (même API que Furnality)
+ * Aucune dépendance externe.
  */
 const CRAN_API = (typeof CRAN_API_URL !== 'undefined') ? CRAN_API_URL : 'https://furnality-api.darkeoftime.workers.dev';
 const CRAN_MAIL = 'furnality@gmail.com';
@@ -53,7 +53,7 @@ function fmtDateShort(d) {
 /* Style des types d'annonces / statuts */
 function toneOf(label) {
   const k = norm(label);
-  if (/revocation|retrait|sanction|interdiction|arret|ferme/.test(k)) return 'badge--danger';
+  if (/revocation|revoque|retrait|sanction|interdiction|arret|ferme/.test(k)) return 'badge--danger';
   if (/suspension|mise en demeure|suspendu/.test(k)) return 'badge--alert';
   if (/avertissement|signalement|surveillance|enquete|instruction/.test(k)) return 'badge--warn';
   if (/autoris|nouvelle|agree|conforme|actif/.test(k)) return 'badge--ok';
@@ -291,7 +291,8 @@ async function pageChains() {
     const rows = r ? [
       ['N° d’autorisation', r.numero_autorisation],
       ['Autorisée le', isFilled(r.date_autorisation) ? fmtDate(r.date_autorisation) : ''],
-      ['Responsable', r.responsable]
+      ['Responsable', r.responsable],
+      ['Historique', r.historique]
     ].filter(x => isFilled(x[1])) : [];
     return `
       <article class="card card--hover" ${archived ? 'style="opacity:.82"' : ''}>
