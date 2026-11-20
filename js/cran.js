@@ -314,7 +314,7 @@ async function pageChains() {
   root.innerHTML = `
     ${tv.length ? `<h2 class="sub-title">${icon('tv')} Télévision</h2><div class="grid" style="margin-bottom:48px">${tv.map(d => card(d, false)).join('')}</div>` : ''}
     ${rdo.length ? `<h2 class="sub-title">${icon('radio')} Stations de radio</h2><div class="grid" style="margin-bottom:48px">${rdo.map(d => card(d, false)).join('')}</div>` : ''}
-    ${bonus.length ? `<h2 class="sub-title">${icon('bonus')} Chaînes bonus (YouTube &amp; Zapping)</h2><div class="grid" style="margin-bottom:48px">${bonus.map(d => card(d, false)).join('')}</div>` : ''}
+    ${bonus.length ? `<h2 class="sub-title">${icon('bonus')} Chaînes bonus</h2><div class="grid" style="margin-bottom:48px">${bonus.map(d => card(d, false)).join('')}</div>` : ''}
     <h2 class="sub-title">${icon('archive')} Archives</h2>
     ${archived.length
       ? `<div class="grid">${archived.map(d => card(d, true)).join('')}</div>`
