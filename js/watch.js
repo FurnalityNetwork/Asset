@@ -14,11 +14,10 @@ const CHANNEL_COLOR_VARS = {
   "One by Furnality": "--obf-primary"
 };
 
-// Valeurs de secours (charte graphique) si la variable CSS n'est pas définie
 const CHANNEL_COLOR_FALLBACKS = {
   "--cos-primary": "#0055FF",
   "--sos-primary": "#FF1D25",
-  "--rdo-primary": "#0055FF",
+  "--rdo-primary": "#5A189A",
   "--sgfr-primary": "#10D050",
   "--saz-primary": "#7F00FF",
   "--aom-primary": "#FBC531",
@@ -29,8 +28,7 @@ const CHANNEL_COLOR_FALLBACKS = {
 };
 
 const DEFAULT_WORKER_URL = "https://furnality-api.darkeoftime.workers.dev";
-
-/* ---------- Utilitaires ---------- */
+const HISTORY_STORAGE_KEY = "furnality_zapping_history_v1";
 
 function getChannelColor(name) {
   if (!name) return "#000000";
@@ -55,20 +53,15 @@ function isFilled(value) {
     String(value).trim() !== "" && String(value).trim().toUpperCase() !== "NULL";
 }
 
-// Comparaison d'id tolérante (nombre ou texte)
 function findBroadcaster(diffusions, show) {
   const wanted = String(show.diffusion_id).trim();
   return diffusions.find(d => String(d.id).trim() === wanted);
 }
 
-// Une série = même chaîne (diffusion_id) + même titre de série (nom).
-// Ça empêche de mélanger une émission TV et une émission radio.
 function seriesKey(show) {
   return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
 }
 
-// Audio si seul podcast_url est rempli, vidéo si seul video_url l'est ;
-// si les deux (ou aucun) le sont, c'est le type de la chaîne (radio / TV) qui tranche
 function isPodcastShow(show, broadcaster) {
   const hasAudio = isFilled(show.podcast_url);
   const hasVideo = isFilled(show.video_url);
@@ -77,7 +70,6 @@ function isPodcastShow(show, broadcaster) {
   return !!(broadcaster && broadcaster.role === "RDO");
 }
 
-// Nombre depuis une colonne INTEGER (0 reste valide, NULL -> valeur par défaut)
 function numOr(value, fallback) {
   return isFilled(value) && !isNaN(Number(value)) ? Number(value) : fallback;
 }
@@ -86,7 +78,6 @@ function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-// Titre de l'épisode : episode_name si renseigné, sinon "Épisode N", sinon le titre de la série
 function episodeTitle(show) {
   if (isFilled(show.episode_name)) return String(show.episode_name).trim();
   if (isFilled(show.episode)) return `Épisode ${show.episode}`;
@@ -99,9 +90,40 @@ function episodeLabel(show) {
   return [season, ep].filter(Boolean).join(" · ") || "Épisode";
 }
 
-/* ---------- Initialisation ---------- */
+function recordWatched(showId) {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const next = [String(showId), ...(Array.isArray(list) ? list.map(String).filter(x => x !== String(showId)) : [])].slice(0, 6);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+  } catch (e) {}
+}
+
+function initCopyButton() {
+  const btn = document.getElementById("copy-link-btn");
+  const label = document.getElementById("copy-link-label");
+  if (!btn || !label) return;
+
+  btn.addEventListener("click", async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (e) {
+      const tmp = document.createElement("input");
+      tmp.value = url;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand("copy");
+      document.body.removeChild(tmp);
+    }
+    const prev = label.textContent;
+    label.textContent = "Lien copié";
+    setTimeout(() => { label.textContent = prev; }, 2000);
+  });
+}
 
 document.addEventListener("DOMContentLoaded", () => {
+  initCopyButton();
   initWatchPage();
 });
 
@@ -115,7 +137,7 @@ async function initWatchPage() {
   }
 
   try {
-    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
+    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== "undefined" ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
 
     const [resDiff, resShows] = await Promise.all([
       fetch(`${workerUrl}/api/diffusions`),
@@ -136,13 +158,10 @@ async function initWatchPage() {
       return;
     }
 
-    const broadcaster = findBroadcaster(diffusions, currentShow);
-    if (!broadcaster) {
-      console.warn("Chaîne introuvable pour diffusion_id =", currentShow.diffusion_id);
-    }
-    const podcast = isPodcastShow(currentShow, broadcaster);
+    recordWatched(currentShow.id);
 
-    // Couleur de la chaîne : utilisée par la barre des cartes et les badges
+    const broadcaster = findBroadcaster(diffusions, currentShow);
+    const podcast = isPodcastShow(currentShow, broadcaster);
     const channelColor = getChannelColor(broadcaster ? broadcaster.nom : "");
     const main = document.getElementById("watch-main");
     if (main) main.style.setProperty("--channel-color", channelColor);
@@ -158,15 +177,13 @@ async function initWatchPage() {
     renderEpisodes(currentShow, shows, podcast);
     renderChannelShows(currentShow, shows, broadcaster);
 
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof lucide !== "undefined") lucide.createIcons();
 
   } catch (err) {
     console.error("Erreur d'initialisation de la page watch:", err);
     renderError("Une erreur est survenue lors du chargement de la ressource.");
   }
 }
-
-/* ---------- En-tête + panneau de l'épisode ---------- */
 
 function renderMetadata(show, broadcaster, channelColor) {
   const pill = document.getElementById("hero-pill");
@@ -178,7 +195,6 @@ function renderMetadata(show, broadcaster, channelColor) {
   const logoImg = document.getElementById("broadcaster-logo");
   const badgeBroadcaster = document.getElementById("badge-broadcaster");
 
-  // En-tête simple : pastille de la chaîne, titre de la série, description
   if (pill) {
     pill.textContent = broadcaster ? broadcaster.nom : "Zapping";
     pill.style.backgroundColor = channelColor;
@@ -194,7 +210,6 @@ function renderMetadata(show, broadcaster, channelColor) {
     mediaDesc.textContent = isFilled(show.description) ? show.description : "";
   }
 
-  // Panneau "En cours de lecture"
   if (episodeTitleEl) {
     episodeTitleEl.textContent = episodeTitle(show);
   }
@@ -211,7 +226,6 @@ function renderMetadata(show, broadcaster, channelColor) {
     badgeProduction.classList.remove("hidden");
   }
 
-  // Logo de la chaîne, avec badge texte de secours
   if (broadcaster && isFilled(broadcaster.logo)) {
     if (logoImg) {
       logoImg.src = broadcaster.logo;
@@ -224,8 +238,6 @@ function renderMetadata(show, broadcaster, channelColor) {
   }
 }
 
-/* ---------- Lecteurs ---------- */
-
 function renderVideoPlayer(show) {
   const wrapper = document.getElementById("player-wrapper");
   if (!wrapper) return;
@@ -236,7 +248,7 @@ function renderVideoPlayer(show) {
     if (embedUrl.toLowerCase().endsWith(".mp4")) {
       wrapper.innerHTML = `
         <div class="relative w-full bg-black border border-gray-200">
-          <video controls controlsList="nodownload" class="w-full aspect-video bg-black" poster="${isFilled(show.image) ? esc(show.image) : ''}">
+          <video controls controlsList="nodownload" class="w-full aspect-video bg-black" poster="${isFilled(show.image) ? esc(show.image) : ""}">
             <source src="${esc(embedUrl)}" type="video/mp4">
             Votre navigateur ne supporte pas la lecture de cette vidéo.
           </video>
@@ -285,7 +297,6 @@ function renderAudioPlayer(show) {
         <h2 class="text-xl md:text-2xl font-bold text-black leading-snug">${esc(episodeTitle(show))}</h2>
 
         ${isFilled(show.podcast_url) ? (() => {
-          // Lien Spotify -> lecteur intégré ; sinon fichier audio direct
           const spotify = String(show.podcast_url).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(episode|show|track|playlist)\/([A-Za-z0-9]+)/);
           if (spotify) {
             return `<iframe src="https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}" title="${esc(episodeTitle(show))}" class="w-full border-0" style="height:152px" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
@@ -301,8 +312,6 @@ function renderAudioPlayer(show) {
     </div>
   `;
 }
-
-/* ---------- Épisodes de la série (avec onglets de saison) ---------- */
 
 function renderEpisodes(currentShow, allShows, isPodcast) {
   const grid = document.getElementById("episodes-grid");
@@ -322,13 +331,37 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
       return Number(a.id) - Number(b.id);
     });
 
+  const idx = episodes.findIndex(e => String(e.id) === String(currentShow.id));
+  const prevEp = idx > 0 ? episodes[idx - 1] : null;
+  const nextEp = idx >= 0 && idx < episodes.length - 1 ? episodes[idx + 1] : null;
+
+  const epNav = document.getElementById("episode-nav");
+  const prevBtn = document.getElementById("prev-episode-btn");
+  const nextBtn = document.getElementById("next-episode-btn");
+
+  if (epNav && prevBtn && nextBtn && (prevEp || nextEp)) {
+    epNav.classList.remove("hidden");
+    if (prevEp) {
+      prevBtn.href = `watch.html?id=${encodeURIComponent(prevEp.id)}`;
+      prevBtn.classList.remove("opacity-30", "pointer-events-none");
+    } else {
+      prevBtn.href = "#";
+      prevBtn.classList.add("opacity-30", "pointer-events-none");
+    }
+    if (nextEp) {
+      nextBtn.href = `watch.html?id=${encodeURIComponent(nextEp.id)}`;
+      nextBtn.classList.remove("opacity-30", "pointer-events-none");
+    } else {
+      nextBtn.href = "#";
+      nextBtn.classList.add("opacity-30", "pointer-events-none");
+    }
+  }
+
   const seasons = [...new Set(episodes.map(e => numOr(e.saison, 1)))].sort((a, b) => a - b);
   const currentSeason = numOr(currentShow.saison, 1);
 
-  // "À suivre" dans le panneau de lecture : les 4 prochains épisodes de la série
   const upnext = document.getElementById("upnext");
   const upnextList = document.getElementById("upnext-list");
-  const idx = episodes.findIndex(e => String(e.id) === String(currentShow.id));
   const coming = idx >= 0 ? episodes.slice(idx + 1, idx + 5) : [];
   if (upnext && upnextList && coming.length) {
     upnextList.innerHTML = "";
@@ -339,7 +372,7 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
       link.innerHTML = `
         ${isFilled(e.image)
           ? `<img src="${esc(e.image)}" alt="" loading="lazy" class="w-24 aspect-video object-cover flex-shrink-0 border border-gray-200" />`
-          : `<div class="w-24 aspect-video flex-shrink-0 bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400"><i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4"></i></div>`
+          : `<div class="w-24 aspect-video flex-shrink-0 bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400"><i data-lucide="${isPodcast ? "mic" : "play"}" class="w-4 h-4"></i></div>`
         }
         <div class="min-w-0">
           <p class="text-[10px] font-mono uppercase tracking-wider text-gray-400">${esc(episodeLabel(e))}</p>
@@ -369,7 +402,7 @@ function renderEpisodes(currentShow, allShows, isPodcast) {
         }`;
       });
     }
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof lucide !== "undefined") lucide.createIcons();
   }
 
   if (tabs) {
@@ -407,14 +440,14 @@ function createEpisodeCard(show, isActive, isPodcast) {
   card.innerHTML = `
     <div class="show-body">
       <div class="flex items-start gap-4">
-        ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="" loading="lazy" class="w-28 aspect-video object-cover flex-shrink-0 border border-gray-200" />` : ''}
+        ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="" loading="lazy" class="w-28 aspect-video object-cover flex-shrink-0 border border-gray-200" />` : ""}
         <div class="min-w-0 flex-grow">
           <div class="show-header">
             <span class="show-category">${esc(episodeLabel(show))}</span>
-            ${isActive ? `<span class="show-channel-badge">En cours</span>` : ''}
+            ${isActive ? `<span class="show-channel-badge">En cours</span>` : ""}
           </div>
           <h4 class="show-title flex items-start gap-2 mb-0">
-            <i data-lucide="${isPodcast ? 'mic' : 'play'}" class="w-4 h-4 mt-1 flex-shrink-0"></i>
+            <i data-lucide="${isPodcast ? "mic" : "play"}" class="w-4 h-4 mt-1 flex-shrink-0"></i>
             <span>${esc(episodeTitle(show))}</span>
           </h4>
         </div>
@@ -425,9 +458,8 @@ function createEpisodeCard(show, isActive, isPodcast) {
   return card;
 }
 
-/* ---------- Autres programmes de la même chaîne ---------- */
-
 function renderChannelShows(currentShow, allShows, broadcaster) {
+  const section = document.getElementById("channel-shows-section");
   const grid = document.getElementById("channel-shows-grid");
   const title = document.getElementById("channel-shows-title");
   if (!grid) return;
@@ -441,7 +473,6 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
   const currentKey = seriesKey(currentShow);
   const currentDiffusion = String(currentShow.diffusion_id).trim();
 
-  // Une seule carte par série, uniquement sur la même chaîne, hors série en cours
   const uniqueMap = new Map();
   allShows
     .filter(s => String(s.diffusion_id).trim() === currentDiffusion)
@@ -462,13 +493,10 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
   const channelShows = Array.from(uniqueMap.values());
 
   if (channelShows.length === 0) {
-    grid.innerHTML = `
-      <div class="col-span-full p-8 bg-gray-50 border border-gray-200 text-center text-xs font-mono text-gray-500">
-        Aucun autre programme n'est répertorié pour cette chaîne actuellement.
-      </div>
-    `;
+    if (section) section.style.display = "none";
     return;
   }
+  if (section) section.style.display = "";
 
   channelShows.forEach(show => {
     const podcast = isPodcastShow(show, broadcaster);
@@ -480,21 +508,21 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
         <div class="show-image-container">
           <img src="${esc(show.image)}" alt="${esc(show.nom)}" class="show-image" loading="lazy" />
         </div>
-      ` : ''}
+      ` : ""}
 
       <div class="show-body">
         <div class="show-header">
-          <span class="show-category">${esc(isFilled(show.production) ? show.production : 'Programme')}</span>
-          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ''}
+          <span class="show-category">${esc(isFilled(show.production) ? show.production : "Programme")}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ""}
         </div>
 
         <h4 class="show-title">${esc(show.nom)}</h4>
 
-        <p class="show-desc line-clamp-3">${esc(show.description || '')}</p>
+        <p class="show-desc line-clamp-3">${esc(show.description || "")}</p>
 
         <div class="show-actions">
           <a href="watch.html?id=${encodeURIComponent(show.id)}" class="show-action-btn">
-            ${podcast ? 'Écouter' : 'Regarder'}
+            ${podcast ? "Écouter" : "Regarder"}
           </a>
         </div>
       </div>
@@ -503,8 +531,6 @@ function renderChannelShows(currentShow, allShows, broadcaster) {
     grid.appendChild(card);
   });
 }
-
-/* ---------- Erreur ---------- */
 
 function renderError(message) {
   const wrapper = document.getElementById("player-wrapper");
@@ -521,7 +547,7 @@ function renderError(message) {
     `;
   }
 
-  ["episode-panel", "episodes-section", "channel-shows-section"].forEach(id => {
+  ["episode-panel", "episodes-section", "channel-shows-section", "episode-nav"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
@@ -529,5 +555,5 @@ function renderError(message) {
   const title = document.getElementById("media-title");
   if (title) title.textContent = "Contenu indisponible";
 
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+  if (typeof lucide !== "undefined") lucide.createIcons();
 }
