@@ -21,7 +21,9 @@
     'arrow-right': '<path d="M5 12h14M12 5l7 7-7 7"/>',
     'mail': '<rect x="2" y="4" width="20" height="16"/><path d="M22 7l-10 6L2 7"/>',
     'link': '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
-    'share': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>'
+    'share': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+    'newspaper': '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/>',
+    'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'
   };
   const icon = n => `<svg class="n-icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -129,8 +131,27 @@
       </a>`;
     }).join('');
   }
-  const unavailable = () => `<div class="n-empty">Les actualités sont momentanément indisponibles. Réessayez dans quelques instants.</div>`;
-  const emptyBox = m => `<div class="n-empty">${esc(m)}</div>`;
+
+  function emptyBox(title, opts = {}) {
+    const eyebrow = opts.eyebrow || 'Salle de rédaction';
+    const desc = opts.desc || 'La rédaction prépare les prochains articles. Revenez très bientôt.';
+    const iconName = opts.icon || 'newspaper';
+    const action = opts.action || '';
+    return `
+      <div class="n-empty-state">
+        <div class="n-empty-icon">${icon(iconName)}</div>
+        <span class="n-kicker">${esc(eyebrow)}</span>
+        <h3 class="n-empty-title">${esc(title)}</h3>
+        <p class="n-empty-desc">${esc(desc)}</p>
+        ${action ? `<div class="n-empty-actions">${action}</div>` : ''}
+      </div>`;
+  }
+
+  const unavailable = () => emptyBox('Actualités momentanément indisponibles.', {
+    eyebrow: 'Connexion au flux',
+    desc: 'Impossible de joindre le serveur éditorial pour le moment. Réessayez dans quelques instants.',
+    action: `<button class="n-btn n-btn--dark" type="button" onclick="location.reload()">Actualiser la page</button>`
+  });
 
   /* ---------- Bandeau des rubriques, horloge temps réel & recherche ---------- */
   function renderBand(activeSlug, onSearch) {
@@ -231,16 +252,24 @@
           </div>
           ${matches.length
             ? `<div class="n-grid2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">${matches.map(a => card(a, { chapo: true })).join('')}</div>`
-            : emptyBox('Aucun article ne correspond à votre recherche.')}
+            : emptyBox('Aucun résultat trouvé.', {
+                eyebrow: 'Recherche',
+                icon: 'search',
+                desc: `Aucun article ne correspond à « ${rawQ.trim()} ». Essayez avec un autre mot-clé ou parcourez les rubriques.`,
+                action: `<button class="n-btn n-btn--dark" type="button" id="n-clear-search-btn">Effacer la recherche</button>`
+              })}
         </section>`;
-      const clr = $('#n-clear-search');
-      if (clr) clr.addEventListener('click', e => {
+      const resetSearch = e => {
         e.preventDefault();
         const inp = $('#news-search');
         if (inp) inp.value = '';
         history.replaceState(null, '', 'index.html');
         runSearch('');
-      });
+      };
+      const clr = $('#n-clear-search');
+      const clrBtn = $('#n-clear-search-btn');
+      if (clr) clr.addEventListener('click', resetSearch);
+      if (clrBtn) clrBtn.addEventListener('click', resetSearch);
     };
 
     renderBand('', runSearch);
@@ -249,8 +278,20 @@
       const moreSec = $('#n-more')?.closest('.n-section');
       if (moreSec) moreSec.hidden = true;
     };
-    if (!ar.ok) { hideSecondary(); front.innerHTML = `<div style="grid-column:1/-1">${unavailable()}</div>`; return; }
-    if (!all.length) { hideSecondary(); front.innerHTML = `<div style="grid-column:1/-1">${emptyBox('Aucun article publié pour le moment.')}</div>`; return; }
+    if (!ar.ok) {
+      hideSecondary();
+      front.innerHTML = `<div style="grid-column:1/-1">${unavailable()}</div>`;
+      return;
+    }
+    if (!all.length) {
+      hideSecondary();
+      front.innerHTML = `<div style="grid-column:1/-1">${emptyBox('Aucun article publié pour le moment.', {
+        eyebrow: 'Édition en préparation',
+        desc: 'Les journalistes et contributeurs du réseau préparent les prochains sujets. Revenez très bientôt ou explorez nos antennes.',
+        action: `<a class="n-btn n-btn--dark" href="https://furnalitynetwork.github.io/Zapping">Découvrir Zapping</a>`
+      })}</div>`;
+      return;
+    }
 
     const featured = all.filter(a => Number(a.a_la_une) > 0).sort((a, b) => Number(a.a_la_une) - Number(b.a_la_une));
     const pool = [...featured, ...all.filter(a => !featured.includes(a))];
@@ -275,7 +316,14 @@
 
     const more = take(6);
     const moreBox = $('#n-more');
-    moreBox.innerHTML = more.length ? more.map(a => card(a, { chapo: true })).join('') : emptyBox('Plus d’articles très bientôt.');
+    if (more.length) {
+      moreBox.innerHTML = more.map(a => card(a, { chapo: true })).join('');
+    } else {
+      moreBox.innerHTML = `<div style="grid-column:1/-1">${emptyBox('Plus d’articles très bientôt.', {
+        eyebrow: 'À suivre',
+        desc: 'D’autres sujets sont en cours de rédaction.'
+      })}</div>`;
+    }
     const feedBox = $('#n-feed-list');
     if (feedBox) feedBox.innerHTML = feedList(all.slice(0, 8));
 
@@ -310,13 +358,27 @@
     renderBand(slug);
     const head = $('#n-rub-head'), box = $('#n-rub-list');
     if (!rr.ok || !ar.ok) { box.innerHTML = unavailable(); return; }
-    if (!r) { box.innerHTML = emptyBox('Cette rubrique est introuvable.') + `<p style="margin-top:18px"><a class="n-btn n-btn--dark" href="index.html">Retour à la une</a></p>`; return; }
+    if (!r) {
+      box.innerHTML = emptyBox('Rubrique introuvable.', {
+        eyebrow: 'Erreur 404',
+        desc: 'Cette rubrique n’existe pas ou a été déplacée.',
+        action: `<a class="n-btn n-btn--dark" href="index.html">Retour à la une</a>`
+      });
+      return;
+    }
     document.title = `${r.nom} — Furnality News`;
     head.className = `n-rub-head ${rubClass(r)}`;
     head.innerHTML = `<div class="n-wrap"><p class="n-crumbs"><a href="index.html">News</a> / ${esc(r.nom)}</p><h1>${esc(r.nom)}</h1>${isFilled(r.description) ? `<p>${esc(r.description)}</p>` : ''}</div>`;
     const list = ar.data.filter(a => String(a.rubrique_id) === String(r.id)).sort(byDate);
-    if (!list.length) { box.innerHTML = emptyBox('Aucun article dans cette rubrique pour le moment.'); return; }
     box.className = rubClass(r);
+    if (!list.length) {
+      box.innerHTML = emptyBox('Aucun article dans cette rubrique.', {
+        eyebrow: r.nom,
+        desc: 'Aucun sujet n’a encore été publié dans cette catégorie. Retrouvez toute l’actualité du réseau à la une.',
+        action: `<a class="n-btn n-btn--dark" href="index.html">Retour à la une</a>`
+      });
+      return;
+    }
     box.innerHTML = `
       <div class="n-rub" style="margin-bottom:36px">
         <div class="n-big">${card(list[0], { chapo: true })}</div>
@@ -334,8 +396,15 @@
     const a = ar.data.find(x => String(x.id) === String(id));
     const r = a ? rubOf(a) : null;
     renderBand(r ? String(r.slug || r.id) : '__none__');
-    if (!ar.ok) { box.innerHTML = unavailable(); return; }
-    if (!a) { box.innerHTML = emptyBox('Cet article est introuvable ou n’est plus publié.') + `<p style="margin-top:18px"><a class="n-btn n-btn--dark" href="index.html">Retour à la une</a></p>`; return; }
+    if (!ar.ok) { box.innerHTML = `<div style="grid-column:1/-1">${unavailable()}</div>`; return; }
+    if (!a) {
+      box.innerHTML = `<div style="grid-column:1/-1">${emptyBox('Article introuvable.', {
+        eyebrow: 'Erreur 404',
+        desc: 'Cet article n’existe pas ou n’est plus publié sur Furnality News.',
+        action: `<a class="n-btn n-btn--dark" href="index.html">Retour à la une</a>`
+      })}</div>`;
+      return;
+    }
     document.title = `${a.titre} — Furnality News`;
     const all = ar.data.slice().sort(byDate);
     const paras = String(a.contenu || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
