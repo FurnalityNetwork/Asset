@@ -15,11 +15,10 @@ const CHANNEL_COLOR_VARS = {
   "One by Furnality": "--obf-primary"
 };
 
-// Valeurs de secours (charte graphique) si la variable CSS n'est pas définie
 const CHANNEL_COLOR_FALLBACKS = {
   "--cos-primary": "#0055FF",
   "--sos-primary": "#FF1D25",
-  "--rdo-primary": "#0055FF",
+  "--rdo-primary": "#5A189A",
   "--sgfr-primary": "#10D050",
   "--saz-primary": "#7F00FF",
   "--aom-primary": "#FBC531",
@@ -30,6 +29,13 @@ const CHANNEL_COLOR_FALLBACKS = {
 };
 
 const DEFAULT_WORKER_URL = "https://furnality-api.darkeoftime.workers.dev";
+const HISTORY_STORAGE_KEY = "furnality_zapping_history_v1";
+
+let allShowsData = [];
+let allDiffusionsData = [];
+let activeFormatFilter = "ALL";
+let activeChannelFilter = "ALL";
+let activeSearchQuery = "";
 
 function getChannelColor(name) {
   if (!name) return "#000000";
@@ -54,19 +60,15 @@ function isFilled(value) {
     String(value).trim() !== "" && String(value).trim().toUpperCase() !== "NULL";
 }
 
-// Comparaison d'id tolérante (nombre ou texte)
 function findBroadcaster(diffusions, show) {
   const wanted = String(show.diffusion_id).trim();
   return diffusions.find(d => String(d.id).trim() === wanted);
 }
 
-// Une série = même chaîne (diffusion_id) + même titre de série (nom)
 function seriesKey(show) {
   return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
 }
 
-// Audio si seul podcast_url est rempli, vidéo si seul video_url l'est ;
-// si les deux (ou aucun) le sont, c'est le type de la chaîne (radio / TV) qui tranche
 function isPodcastShow(show, broadcaster) {
   const hasAudio = isFilled(show.podcast_url);
   const hasVideo = isFilled(show.video_url);
@@ -75,36 +77,56 @@ function isPodcastShow(show, broadcaster) {
   return !!(broadcaster && broadcaster.role === "RDO");
 }
 
-// Nombre depuis une colonne INTEGER (0 reste valide, NULL -> valeur par défaut)
 function numOr(value, fallback) {
   return isFilled(value) && !isNaN(Number(value)) ? Number(value) : fallback;
 }
 
+function readHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function clearHistory() {
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+  } catch (e) {}
+  renderContinueWatching(allShowsData, allDiffusionsData);
+}
+
 async function loadZappingData() {
   try {
-    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
+    const workerUrl = typeof CLOUDFLARE_WORKER_URL !== "undefined" ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
 
     const [resDiff, resShows] = await Promise.all([
       fetch(`${workerUrl}/api/diffusions`),
       fetch(`${workerUrl}/api/shows`)
     ]);
 
-    let diffusions = [];
     if (resDiff.ok) {
-      diffusions = await resDiff.json();
-      renderChannels(diffusions);
+      allDiffusionsData = await resDiff.json();
+      renderChannels(allDiffusionsData);
+      populateChannelFilter(allDiffusionsData);
     }
 
     if (resShows.ok) {
-      const shows = await resShows.json();
-      renderShows(shows, diffusions);
-      renderFeaturedShows(shows, diffusions);
+      allShowsData = await resShows.json();
+      initFilterControls();
+      renderContinueWatching(allShowsData, allDiffusionsData);
+      renderShows(allShowsData, allDiffusionsData);
+      renderFeaturedShows(allShowsData, allDiffusionsData);
+      if (typeof lucide !== "undefined") lucide.createIcons();
     }
   } catch (err) {
     console.error("Erreur de chargement Zapping:", err);
   }
 }
 
+// Section EN DIRECT conservée à l'identique
 function renderChannels(items) {
   const tvGrid = document.getElementById("tv-channels-grid");
   const radioGrid = document.getElementById("radio-channels-grid");
@@ -116,7 +138,6 @@ function renderChannels(items) {
   items.forEach(item => {
     const status = String(item.status || "").trim().toUpperCase();
 
-    // Masque les chaînes archivées (disparues) et les chaînes bonus (YouTube/VOD uniquement) dans les grilles direct
     if (status === "ARCHIVE" || status === "ARCHIVED" || status === "BONUS") return;
 
     const isActive = status === "TRUE";
@@ -135,7 +156,7 @@ function renderChannels(items) {
     }`;
 
     if (colorVar) {
-      card.style.setProperty('--channel-color', `var(${colorVar})`);
+      card.style.setProperty("--channel-color", `var(${colorVar})`);
     }
 
     card.innerHTML = `
@@ -157,12 +178,137 @@ function renderChannels(items) {
   });
 }
 
+function populateChannelFilter(diffusions) {
+  const select = document.getElementById("shows-channel-filter");
+  if (!select) return;
+
+  const seen = new Set();
+  diffusions.forEach(d => {
+    const id = String(d.id).trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = d.nom;
+    select.appendChild(opt);
+  });
+}
+
+function initFilterControls() {
+  const searchInput = document.getElementById("shows-search");
+  const channelSelect = document.getElementById("shows-channel-filter");
+  const formatBtns = document.querySelectorAll(".format-filter-btn");
+  const clearBtn = document.getElementById("clear-history-btn");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", e => {
+      activeSearchQuery = String(e.target.value || "").trim().toLowerCase();
+      renderShows(allShowsData, allDiffusionsData);
+    });
+  }
+
+  if (channelSelect) {
+    channelSelect.addEventListener("change", e => {
+      activeChannelFilter = e.target.value;
+      renderShows(allShowsData, allDiffusionsData);
+    });
+  }
+
+  formatBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeFormatFilter = btn.dataset.format || "ALL";
+      formatBtns.forEach(b => {
+        const isSelected = b.dataset.format === activeFormatFilter;
+        b.className = `format-filter-btn flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+          isSelected ? "bg-black text-white" : "text-gray-600 hover:text-black"
+        }`;
+      });
+      renderShows(allShowsData, allDiffusionsData);
+    });
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", clearHistory);
+  }
+}
+
+function renderContinueWatching(shows, diffusions) {
+  const section = document.getElementById("continue-watching");
+  const grid = document.getElementById("continue-grid");
+  if (!section || !grid) return;
+
+  const historyIds = readHistory();
+  if (!historyIds.length) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  const items = historyIds
+    .map(id => shows.find(s => String(s.id) === String(id)))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (!items.length) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+  grid.innerHTML = "";
+
+  items.forEach(show => {
+    const broadcaster = findBroadcaster(diffusions, show);
+    const colorValue = getChannelColor(broadcaster ? broadcaster.nom : "");
+    const podcast = isPodcastShow(show, broadcaster);
+
+    const card = document.createElement("article");
+    card.className = "show-card";
+    card.style.setProperty("--channel-color", colorValue);
+
+    const epTag = isFilled(show.episode_name)
+      ? show.episode_name
+      : (isFilled(show.episode) ? `Épisode ${show.episode}` : show.nom);
+
+    card.innerHTML = `
+      ${isFilled(show.image) ? `
+        <div class="show-image-container">
+          <img src="${esc(show.image)}" alt="${esc(show.nom)}" class="show-image" loading="lazy" />
+        </div>
+      ` : ""}
+      <div class="show-body">
+        <div class="show-header">
+          <span class="show-category">${esc(epTag)}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ""}
+        </div>
+        <h4 class="show-title">${esc(show.nom)}</h4>
+        <div class="show-actions">
+          <a href="watch.html?id=${encodeURIComponent(show.id)}" class="show-action-btn">
+            Reprendre (${podcast ? "Écouter" : "Regarder"})
+          </a>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
 function renderShows(shows, diffusions) {
   const showsGrid = document.getElementById("shows-grid");
+  const countEl = document.getElementById("shows-count");
   if (!showsGrid) return;
   showsGrid.innerHTML = "";
 
-  // REGROUPEMENT : une seule carte par série / podcast (même chaîne + même titre de série)
+  // Comptage des épisodes et saisons par série
+  const seriesStatsMap = new Map();
+  shows.forEach(show => {
+    const key = seriesKey(show);
+    const stat = seriesStatsMap.get(key) || { count: 0, seasons: new Set() };
+    stat.count += 1;
+    if (isFilled(show.saison)) stat.seasons.add(String(show.saison).trim());
+    seriesStatsMap.set(key, stat);
+  });
+
+  // Regroupement : une carte par série (épisode le plus bas en représentant)
   const uniqueShowsMap = new Map();
   shows.forEach(show => {
     const key = seriesKey(show);
@@ -171,7 +317,6 @@ function renderShows(shows, diffusions) {
       uniqueShowsMap.set(key, show);
       return;
     }
-    // Le représentant de la série est son épisode le plus bas
     const existingEp = numOr(existing.episode, Infinity);
     const currentEp = numOr(show.episode, Infinity);
     if (currentEp < existingEp) {
@@ -179,38 +324,71 @@ function renderShows(shows, diffusions) {
     }
   });
 
-  Array.from(uniqueShowsMap.values()).forEach(show => {
+  let list = Array.from(uniqueShowsMap.values());
+
+  if (activeChannelFilter !== "ALL") {
+    list = list.filter(s => String(s.diffusion_id).trim() === String(activeChannelFilter).trim());
+  }
+
+  if (activeFormatFilter !== "ALL") {
+    list = list.filter(s => {
+      const broadcaster = findBroadcaster(diffusions, s);
+      const pod = isPodcastShow(s, broadcaster);
+      return activeFormatFilter === "PODCAST" ? pod : !pod;
+    });
+  }
+
+  if (activeSearchQuery) {
+    list = list.filter(s => {
+      const haystack = `${s.nom || ""} ${s.description || ""} ${s.production || ""}`.toLowerCase();
+      return haystack.includes(activeSearchQuery);
+    });
+  }
+
+  if (countEl) {
+    countEl.textContent = `${list.length} programme${list.length > 1 ? "s" : ""}`;
+  }
+
+  if (!list.length) {
+    showsGrid.innerHTML = `
+      <div class="col-span-full p-8 bg-white border border-gray-200 text-center text-xs font-mono text-gray-500">
+        Aucun programme ne correspond aux filtres sélectionnés.
+      </div>
+    `;
+    return;
+  }
+
+  list.forEach(show => {
     const broadcaster = findBroadcaster(diffusions, show);
-    if (!broadcaster) {
-      console.warn("Chaîne introuvable pour diffusion_id =", show.diffusion_id, "(show:", show.nom, ")");
-    }
     const colorValue = getChannelColor(broadcaster ? broadcaster.nom : "");
     const podcast = isPodcastShow(show, broadcaster);
+    const stat = seriesStatsMap.get(seriesKey(show));
+    const epCountLabel = stat && stat.count > 1 ? `${stat.count} épisodes` : "";
 
     const card = document.createElement("article");
     card.className = "show-card";
-    card.style.setProperty('--channel-color', colorValue);
+    card.style.setProperty("--channel-color", colorValue);
 
     card.innerHTML = `
       ${isFilled(show.image) ? `
         <div class="show-image-container">
           <img src="${esc(show.image)}" alt="${esc(show.nom)}" class="show-image" loading="lazy" />
         </div>
-      ` : ''}
+      ` : ""}
 
       <div class="show-body">
         <div class="show-header">
-          <span class="show-category">${esc(isFilled(show.production) ? show.production : 'Programme')}</span>
-          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ''}
+          <span class="show-category">${esc(isFilled(show.production) ? show.production : "Programme")}${epCountLabel ? ` · ${esc(epCountLabel)}` : ""}</span>
+          ${broadcaster ? `<span class="show-channel-badge">${esc(broadcaster.nom)}</span>` : ""}
         </div>
 
         <h4 class="show-title">${esc(show.nom)}</h4>
 
-        <p class="show-desc line-clamp-3">${esc(show.description || 'Aucune description disponible.')}</p>
+        <p class="show-desc line-clamp-3">${esc(show.description || "Aucune description disponible.")}</p>
 
         <div class="show-actions">
           <a href="watch.html?id=${encodeURIComponent(show.id)}" class="show-action-btn">
-            ${podcast ? 'Écouter' : 'Regarder'}
+            ${podcast ? "Écouter" : "Regarder"}
           </a>
         </div>
       </div>
@@ -222,25 +400,31 @@ function renderShows(shows, diffusions) {
 
 function renderFeaturedShows(shows, diffusions) {
   const slider = document.getElementById("featured-slider");
+  const controls = document.getElementById("featured-controls");
+  const dotsWrap = document.getElementById("featured-dots");
+  const prevBtn = document.getElementById("slider-prev");
+  const nextBtn = document.getElementById("slider-next");
   if (!slider) return;
 
   const featured = shows.filter(s => String(s.is_featured).toUpperCase() === "TRUE");
   slider.innerHTML = "";
+  if (dotsWrap) dotsWrap.innerHTML = "";
 
   if (featured.length === 0) {
     slider.style.display = "none";
+    if (controls) controls.classList.add("hidden");
     return;
   }
   slider.style.display = "flex";
 
-  featured.forEach(show => {
+  featured.forEach((show, idx) => {
     const broadcaster = findBroadcaster(diffusions, show);
     const podcast = isPodcastShow(show, broadcaster);
 
     const slide = document.createElement("div");
     slide.className = "featured-slide";
     slide.innerHTML = `
-      ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="featured-slide-bg" />` : ''}
+      ${isFilled(show.image) ? `<img src="${esc(show.image)}" alt="${esc(show.nom)}" class="featured-slide-bg" />` : ""}
       <div class="featured-slide-content">
         ${broadcaster && isFilled(broadcaster.logo) ? `
           <div class="mb-3">
@@ -248,26 +432,68 @@ function renderFeaturedShows(shows, diffusions) {
               <img src="${esc(broadcaster.logo)}" alt="${esc(broadcaster.nom)}" class="h-6 w-auto object-contain" />
             </span>
           </div>
-        ` : ''}
+        ` : ""}
         <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${esc(show.nom)}</h2>
-        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${esc(show.description || '')}</p>
-        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="inline-block px-5 py-2.5 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-[#c8102e] hover:text-white transition-colors">${podcast ? 'Écouter' : 'Regarder'}</a>
+        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${esc(show.description || "")}</p>
+        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="inline-block px-5 py-2.5 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-[#c8102e] hover:text-white transition-colors">${podcast ? "Écouter" : "Regarder"}</a>
       </div>
     `;
     slider.appendChild(slide);
+
+    if (dotsWrap && featured.length > 1) {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.ariaLabel = `Slide ${idx + 1}`;
+      dot.className = `h-2 transition-all ${idx === 0 ? "w-6 bg-black" : "w-2 bg-gray-300"}`;
+      dot.addEventListener("click", () => {
+        const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
+        const stepW = slider.children[0].getBoundingClientRect().width + gap;
+        slider.scrollTo({ left: idx * stepW, behavior: "smooth" });
+      });
+      dotsWrap.appendChild(dot);
+    }
   });
+
+  if (controls) {
+    controls.classList.toggle("hidden", featured.length < 2);
+  }
+
+  const goStep = dir => {
+    if (slider.children.length < 2) return;
+    const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
+    const amount = slider.children[0].getBoundingClientRect().width + gap;
+    const atEnd = slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 4;
+    const atStart = slider.scrollLeft <= 4;
+    if (dir > 0) {
+      slider.scrollTo({ left: atEnd ? 0 : slider.scrollLeft + amount, behavior: "smooth" });
+    } else {
+      slider.scrollTo({ left: atStart ? slider.scrollWidth : slider.scrollLeft - amount, behavior: "smooth" });
+    }
+  };
+
+  if (prevBtn) prevBtn.onclick = () => goStep(-1);
+  if (nextBtn) nextBtn.onclick = () => goStep(1);
+
+  if (dotsWrap && featured.length > 1) {
+    slider.addEventListener("scroll", () => {
+      const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
+      const stepW = slider.children[0].getBoundingClientRect().width + gap;
+      const activeIdx = Math.min(featured.length - 1, Math.max(0, Math.round(slider.scrollLeft / stepW)));
+      Array.from(dotsWrap.children).forEach((d, i) => {
+        d.className = `h-2 transition-all ${i === activeIdx ? "w-6 bg-black" : "w-2 bg-gray-300"}`;
+      });
+    }, { passive: true });
+  }
 
   startSliderAutoplay(slider);
 }
 
-// Défilement automatique du slider (pause au survol / au toucher, retour au début en fin de piste)
 function startSliderAutoplay(slider, delay = 5000) {
   clearInterval(slider._autoplay);
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (slider.children.length < 2) return;
 
   const step = () => {
-    // Rien à faire si toutes les diapos tiennent déjà à l'écran
     if (slider.scrollWidth <= slider.clientWidth + 4) return;
     const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
     const amount = slider.children[0].getBoundingClientRect().width + gap;
