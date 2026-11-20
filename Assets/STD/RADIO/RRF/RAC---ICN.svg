@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 179.127 175">
+  <defs>
+    <style>
+      .cls-1{fill:url(#Dégradé_sans_nom_34)}
+    </style>
+    <linearGradient id="Dégradé_sans_nom_34" x1="64.199" y1="12.928" x2="137.357" y2="86.086" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0055a4"/>
+      <stop offset="1" stop-color="#ffd100"/>
+    </linearGradient>
+  </defs>
+  <title>RAC - ICN</title>
+  <g id="Calque_1" data-name="Calque 1">
+    <polygon points="43.183,87.5 43.183,33.945 89.563,60.723 135.943,87.5 89.563,114.277 43.183,141.055" class="cls-1"/>
+  </g>
+</svg>
