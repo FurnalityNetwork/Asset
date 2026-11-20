@@ -1,7 +1,7 @@
 /**
- * CRAN — Conseil de Régulation de l'Audiovisuel et du Numérique
- * Données : Cloudflare Worker + D1 (même API que Furnality)
- * Aucune dépendance externe.
+- CRAN — Conseil de Régulation de l'Audiovisuel et du Numérique
+- Données : Cloudflare Worker + D1 (même API que Furnality)
+- Aucune dépendance externe.
  */
 const CRAN_API = (typeof CRAN_API_URL !== 'undefined') ? CRAN_API_URL : 'https://furnality-api.darkeoftime.workers.dev';
 const CRAN_MAIL = 'furnality@gmail.com';
@@ -10,8 +10,9 @@ const CRAN_MAIL = 'furnality@gmail.com';
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const isFilled = v => v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'NULL';
-const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const safeUrl = u => (isFilled(u) && /^(https?:\/\/|\/|\.\/|[\w-]+\.[\w]+)/i.test(String(u).trim())) ? String(u).trim() : '#';
+const isArchived = d => /^ARCHIV/i.test(String(d && d.status ? d.status : '').trim());
 
 const ICONS = {
   'arrow-right': '<path d="M5 12h14M12 5l7 7-7 7"/>',
@@ -27,6 +28,7 @@ const ICONS = {
   'scale': '<path d="M12 3v18M5 21h14M5 7l-3 8a4 4 0 0 0 6 0zM19 7l-3 8a4 4 0 0 0 6 0zM5 7h14"/>',
   'tv': '<rect x="2" y="7" width="20" height="14"/><path d="M17 2l-5 5-5-5"/>',
   'radio': '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>',
+  'archive': '<rect x="2" y="4" width="20" height="5"/><path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9M10 13h4"/>',
   'search': '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
   'folder': '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'check': '<path d="M20 6L9 17l-5-5"/>',
@@ -51,7 +53,7 @@ function fmtDateShort(d) {
 /* Style des types d'annonces / statuts */
 function toneOf(label) {
   const k = norm(label);
-  if (/revocation|retrait|sanction|interdiction/.test(k)) return 'badge--danger';
+  if (/revocation|retrait|sanction|interdiction|arret|ferme/.test(k)) return 'badge--danger';
   if (/suspension|mise en demeure|suspendu/.test(k)) return 'badge--alert';
   if (/avertissement|signalement|surveillance|enquete|instruction/.test(k)) return 'badge--warn';
   if (/autoris|nouvelle|agree|conforme|actif/.test(k)) return 'badge--ok';
@@ -101,8 +103,9 @@ function newsCard(n, diff) {
 async function pageHome() {
   const [news, docs, diff] = await Promise.all([loadNews(), loadDocs(), loadDiff()]);
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const tv = diff.data.filter(d => String(d.role).toUpperCase() === 'TV').length;
-  const rdo = diff.data.filter(d => String(d.role).toUpperCase() === 'RDO').length;
+  const activeDiff = diff.data.filter(d => !isArchived(d));
+  const tv = activeDiff.filter(d => String(d.role).toUpperCase() === 'TV').length;
+  const rdo = activeDiff.filter(d => String(d.role).toUpperCase() === 'RDO').length;
   set('stat-tv', diff.ok ? tv : '—');
   set('stat-rdo', diff.ok ? rdo : '—');
   set('stat-dec', news.ok ? news.data.filter(isDecision).length : '—');
@@ -279,6 +282,7 @@ async function pageChains() {
 
   const card = d => {
     const r = reg(d.id), n = nbDec(d.id);
+    const statutLabel = (r && isFilled(r.statut)) ? r.statut : (isArchived(d) ? 'Archivée' : '');
     const rows = r ? [
       ['N° d’autorisation', r.numero_autorisation],
       ['Autorisée le', isFilled(r.date_autorisation) ? fmtDate(r.date_autorisation) : ''],
@@ -287,7 +291,7 @@ async function pageChains() {
     return `
       <article class="card card--hover">
         <div class="chan-logo ${isFilled(d.logo) ? '' : 'chan-logo--empty'}">${isFilled(d.logo) ? `<img src="${esc(d.logo)}" alt="${esc(d.nom)}" loading="lazy">` : esc(d.nom)}</div>
-        <div class="card-meta">${r && isFilled(r.statut) ? badge(r.statut) : ''}</div>
+        <div class="card-meta">${statutLabel ? badge(statutLabel) : ''}</div>
         <h3 class="card-title">${esc(d.nom)}</h3>
         ${rows.length ? `<dl class="dl">${rows.map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join('')}</dl>` : ''}
         ${r && isFilled(r.notes) ? `<p class="card-text">${esc(r.notes)}</p>` : ''}
@@ -296,20 +300,32 @@ async function pageChains() {
         </div>
       </article>`;
   };
-  const tv = diff.data.filter(d => String(d.role).toUpperCase() === 'TV');
-  const rdo = diff.data.filter(d => String(d.role).toUpperCase() === 'RDO');
-  root.innerHTML = `
-    ${tv.length ? `<h2 class="sub-title">${icon('tv')} Télévision</h2><div class="grid" style="margin-bottom:48px">${tv.map(card).join('')}</div>` : ''}
-    ${rdo.length ? `<h2 class="sub-title">${icon('radio')} Stations de radio</h2><div class="grid">${rdo.map(card).join('')}</div>` : ''}`;
+
+  const active = diff.data.filter(d => !isArchived(d));
+  const archived = diff.data.filter(isArchived);
+
+  const tv = active.filter(d => String(d.role).toUpperCase() === 'TV');
+  const rdo = active.filter(d => String(d.role).toUpperCase() === 'RDO');
+
+  const sections = [];
+  if (tv.length) sections.push({ title: 'Télévision', icon: 'tv', items: tv });
+  if (rdo.length) sections.push({ title: 'Stations de radio', icon: 'radio', items: rdo });
+  if (archived.length) sections.push({ title: 'Anciennes chaînes &amp; stations', icon: 'archive', items: archived });
+
+  root.innerHTML = sections.map((sec, idx) => `
+    <h2 class="sub-title">${icon(sec.icon)} ${sec.title}</h2>
+    <div class="grid" ${idx < sections.length - 1 ? 'style="margin-bottom:48px"' : ''}>${sec.items.map(card).join('')}</div>
+  `).join('');
 }
 
 async function pageReport() {
   const diff = await loadDiff();
   const sel = $('#r-chan');
-  const opts = diff.data.map(d => `<option>${esc(d.nom)}</option>`).join('');
+  const activeDiff = diff.data.filter(d => !isArchived(d));
+  const opts = activeDiff.map(d => `<option>${esc(d.nom)}</option>`).join('');
   sel.innerHTML = `<option value="">— Choisir —</option>${opts}<option>Autre / je ne sais pas</option>`;
   const pre = new URLSearchParams(location.search).get('chaine');
-  if (pre) { const name = diffName(diff.data, pre); if (name) sel.value = name; }
+  if (pre) { const name = diffName(activeDiff, pre); if (name) sel.value = name; }
 
   const form = $('#report-form');
   const status = $('#r-status');
