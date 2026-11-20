@@ -80,6 +80,11 @@ const loadDiff = () => load('/api/diffusions');
 const loadChannels = () => load('/api/cran/chaines');
 const isDecision = n => isFilled(n.numero_decision);
 const diffName = (diff, id) => { const d = diff.find(x => String(x.id) === String(id)); return d ? d.nom : ''; };
+const isChanArchived = (d, regs) => {
+  if (isArchived(d)) return true;
+  const r = regs.find(x => String(x.diffusion_id) === String(d.id));
+  return !!(r && /^archiv/i.test(norm(r.statut)));
+};
 
 const unavailable = (what) => `<div class="empty">${icon('alert')}<p style="margin-top:8px">${esc(what)} momentanément indisponible. Réessayez dans quelques instants.</p></div>`;
 const emptyBox = (msg) => `<div class="empty">${esc(msg)}</div>`;
@@ -101,9 +106,9 @@ function newsCard(n, diff) {
 
 /* ---------- Pages ---------- */
 async function pageHome() {
-  const [news, docs, diff] = await Promise.all([loadNews(), loadDocs(), loadDiff()]);
+  const [news, docs, diff, regs] = await Promise.all([loadNews(), loadDocs(), loadDiff(), loadChannels()]);
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const activeDiff = diff.data.filter(d => !isArchived(d));
+  const activeDiff = diff.data.filter(d => !isChanArchived(d, regs.data));
   const tv = activeDiff.filter(d => String(d.role).toUpperCase() === 'TV').length;
   const rdo = activeDiff.filter(d => String(d.role).toUpperCase() === 'RDO').length;
   set('stat-tv', diff.ok ? tv : '—');
@@ -280,17 +285,17 @@ async function pageChains() {
   const reg = id => regs.data.find(r => String(r.diffusion_id) === String(id)) || null;
   const nbDec = id => news.data.filter(n => isDecision(n) && String(n.diffusion_id) === String(id)).length;
 
-  const card = d => {
+  const card = (d, archived = false) => {
     const r = reg(d.id), n = nbDec(d.id);
-    const statutLabel = (r && isFilled(r.statut)) ? r.statut : (isArchived(d) ? 'Archivée' : '');
+    const statutLabel = (r && isFilled(r.statut)) ? r.statut : (archived ? 'Archivée' : '');
     const rows = r ? [
       ['N° d’autorisation', r.numero_autorisation],
       ['Autorisée le', isFilled(r.date_autorisation) ? fmtDate(r.date_autorisation) : ''],
       ['Responsable', r.responsable]
     ].filter(x => isFilled(x[1])) : [];
     return `
-      <article class="card card--hover">
-        <div class="chan-logo ${isFilled(d.logo) ? '' : 'chan-logo--empty'}">${isFilled(d.logo) ? `<img src="${esc(d.logo)}" alt="${esc(d.nom)}" loading="lazy">` : esc(d.nom)}</div>
+      <article class="card card--hover" ${archived ? 'style="opacity:.82"' : ''}>
+        <div class="chan-logo ${isFilled(d.logo) ? '' : 'chan-logo--empty'}">${isFilled(d.logo) ? `<img src="${esc(d.logo)}" alt="${esc(d.nom)}" loading="lazy" ${archived ? 'style="filter:grayscale(100%)"' : ''}>` : esc(d.nom)}</div>
         <div class="card-meta">${statutLabel ? badge(statutLabel) : ''}</div>
         <h3 class="card-title">${esc(d.nom)}</h3>
         ${rows.length ? `<dl class="dl">${rows.map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join('')}</dl>` : ''}
@@ -301,27 +306,26 @@ async function pageChains() {
       </article>`;
   };
 
-  const active = diff.data.filter(d => !isArchived(d));
-  const archived = diff.data.filter(isArchived);
+  const active = diff.data.filter(d => !isChanArchived(d, regs.data));
+  const archived = diff.data.filter(d => isChanArchived(d, regs.data));
 
   const tv = active.filter(d => String(d.role).toUpperCase() === 'TV');
   const rdo = active.filter(d => String(d.role).toUpperCase() === 'RDO');
 
-  const sections = [];
-  if (tv.length) sections.push({ title: 'Télévision', icon: 'tv', items: tv });
-  if (rdo.length) sections.push({ title: 'Stations de radio', icon: 'radio', items: rdo });
-  if (archived.length) sections.push({ title: 'Anciennes chaînes &amp; stations', icon: 'archive', items: archived });
-
-  root.innerHTML = sections.map((sec, idx) => `
-    <h2 class="sub-title">${icon(sec.icon)} ${sec.title}</h2>
-    <div class="grid" ${idx < sections.length - 1 ? 'style="margin-bottom:48px"' : ''}>${sec.items.map(card).join('')}</div>
-  `).join('');
+  root.innerHTML = `
+    ${tv.length ? `<h2 class="sub-title">${icon('tv')} Télévision</h2><div class="grid" style="margin-bottom:48px">${tv.map(d => card(d, false)).join('')}</div>` : ''}
+    ${rdo.length ? `<h2 class="sub-title">${icon('radio')} Stations de radio</h2><div class="grid" style="margin-bottom:48px">${rdo.map(d => card(d, false)).join('')}</div>` : ''}
+    <h2 class="sub-title">${icon('archive')} Archives</h2>
+    ${archived.length
+      ? `<div class="grid">${archived.map(d => card(d, true)).join('')}</div>`
+      : emptyBox('Aucune chaîne ni station archivée pour le moment.')}
+  `;
 }
 
 async function pageReport() {
-  const diff = await loadDiff();
+  const [diff, regs] = await Promise.all([loadDiff(), loadChannels()]);
   const sel = $('#r-chan');
-  const activeDiff = diff.data.filter(d => !isArchived(d));
+  const activeDiff = diff.data.filter(d => !isChanArchived(d, regs.data));
   const opts = activeDiff.map(d => `<option>${esc(d.nom)}</option>`).join('');
   sel.innerHTML = `<option value="">— Choisir —</option>${opts}<option>Autre / je ne sais pas</option>`;
   const pre = new URLSearchParams(location.search).get('chaine');
