@@ -13,6 +13,7 @@ const isFilled = v => v !== null && v !== undefined && String(v).trim() !== '' &
 const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const safeUrl = u => (isFilled(u) && /^(https?:\/\/|\/|\.\/|[\w-]+\.[\w]+)/i.test(String(u).trim())) ? String(u).trim() : '#';
 const isArchived = d => /^ARCHIV/i.test(String(d && d.status ? d.status : '').trim());
+const isBonus = d => /^BONUS/i.test(String(d && d.status ? d.status : '').trim());
 
 const ICONS = {
   'arrow-right': '<path d="M5 12h14M12 5l7 7-7 7"/>',
@@ -28,6 +29,7 @@ const ICONS = {
   'scale': '<path d="M12 3v18M5 21h14M5 7l-3 8a4 4 0 0 0 6 0zM19 7l-3 8a4 4 0 0 0 6 0zM5 7h14"/>',
   'tv': '<rect x="2" y="7" width="20" height="14"/><path d="M17 2l-5 5-5-5"/>',
   'radio': '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>',
+  'bonus': '<polygon points="5 3 19 12 5 21 5 3"/>',
   'archive': '<rect x="2" y="4" width="20" height="5"/><path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9M10 13h4"/>',
   'search': '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
   'folder': '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -148,7 +150,6 @@ async function pageNews() {
           ${chan ? `<div><b>Chaîne / station</b>${esc(chan)}</div>` : ''}
         </div>
         <div class="prose">${paras.map(p => `<p>${esc(p)}</p>`).join('') || '<p>—</p>'}</div>
-        ${chan ? `<p style="margin-top:32px"><a class="btn btn--outline" href="decisions.html?chaine=${encodeURIComponent(n.diffusion_id)}">Décisions concernant ${esc(chan)} ${icon('arrow-right')}</a></p>` : ''}
       </article>`;
     return;
   }
@@ -278,15 +279,14 @@ async function pageDocs() {
 
 async function pageChains() {
   const root = $('#chain-root');
-  const [diff, regs, news] = await Promise.all([loadDiff(), loadChannels(), loadNews()]);
+  const [diff, regs] = await Promise.all([loadDiff(), loadChannels()]);
   if (!diff.ok) { root.innerHTML = unavailable('La liste des chaînes et stations est'); return; }
   if (!diff.data.length) { root.innerHTML = emptyBox('Aucune chaîne ni station enregistrée.'); return; }
 
   const reg = id => regs.data.find(r => String(r.diffusion_id) === String(id)) || null;
-  const nbDec = id => news.data.filter(n => isDecision(n) && String(n.diffusion_id) === String(id)).length;
 
   const card = (d, archived = false) => {
-    const r = reg(d.id), n = nbDec(d.id);
+    const r = reg(d.id);
     const statutLabel = (r && isFilled(r.statut)) ? r.statut : (archived ? 'Archivée' : '');
     const rows = r ? [
       ['N° d’autorisation', r.numero_autorisation],
@@ -301,21 +301,20 @@ async function pageChains() {
         <h3 class="card-title">${esc(d.nom)}</h3>
         ${rows.length ? `<dl class="dl">${rows.map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join('')}</dl>` : ''}
         ${r && isFilled(r.notes) ? `<p class="card-text">${esc(r.notes)}</p>` : ''}
-        <div class="card-foot">
-          ${n ? `<a class="link-arrow" href="decisions.html?chaine=${encodeURIComponent(d.id)}">${n} décision${n > 1 ? 's' : ''} ${icon('arrow-right')}</a>` : `<span class="card-meta">Aucune décision enregistrée</span>`}
-        </div>
       </article>`;
   };
 
   const active = diff.data.filter(d => !isChanArchived(d, regs.data));
   const archived = diff.data.filter(d => isChanArchived(d, regs.data));
 
-  const tv = active.filter(d => String(d.role).toUpperCase() === 'TV');
-  const rdo = active.filter(d => String(d.role).toUpperCase() === 'RDO');
+  const tv = active.filter(d => String(d.role).toUpperCase() === 'TV' && !isBonus(d));
+  const rdo = active.filter(d => String(d.role).toUpperCase() === 'RDO' && !isBonus(d));
+  const bonus = active.filter(isBonus);
 
   root.innerHTML = `
     ${tv.length ? `<h2 class="sub-title">${icon('tv')} Télévision</h2><div class="grid" style="margin-bottom:48px">${tv.map(d => card(d, false)).join('')}</div>` : ''}
     ${rdo.length ? `<h2 class="sub-title">${icon('radio')} Stations de radio</h2><div class="grid" style="margin-bottom:48px">${rdo.map(d => card(d, false)).join('')}</div>` : ''}
+    ${bonus.length ? `<h2 class="sub-title">${icon('bonus')} Chaînes bonus (YouTube &amp; Zapping)</h2><div class="grid" style="margin-bottom:48px">${bonus.map(d => card(d, false)).join('')}</div>` : ''}
     <h2 class="sub-title">${icon('archive')} Archives</h2>
     ${archived.length
       ? `<div class="grid">${archived.map(d => card(d, true)).join('')}</div>`
