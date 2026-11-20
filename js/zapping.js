@@ -4,6 +4,7 @@ const CHANNEL_COLOR_VARS = {
   "Music Video Channel": "--sos-primary",
   "Direct 9": "--sos-primary",
   "Furnality News": "--sos-primary",
+  "NEWS": "--sos-primary",
   "Furnality Radio": "--rdo-primary",
   "Streaming Game FR": "--sgfr-primary",
   "Stream Animation Zone": "--saz-primary",
@@ -61,7 +62,7 @@ function findBroadcaster(diffusions, show) {
 
 // Une série = même chaîne (diffusion_id) + même titre de série (nom)
 function seriesKey(show) {
-  return `${String(show.diffusion_id).trim()}\vert{}${String(show.nom || "").trim().toLowerCase()}`;
+  return `${String(show.diffusion_id).trim()}|${String(show.nom || "").trim().toLowerCase()}`;
 }
 
 // Audio si seul podcast_url est rempli, vidéo si seul video_url l'est ;
@@ -84,7 +85,8 @@ async function loadZappingData() {
     const workerUrl = typeof CLOUDFLARE_WORKER_URL !== 'undefined' ? CLOUDFLARE_WORKER_URL : DEFAULT_WORKER_URL;
 
     const [resDiff, resShows] = await Promise.all([
-      fetch(`${workerUrl}/api/diffusions`), fetch(`${workerUrl}/api/shows`)
+      fetch(`${workerUrl}/api/diffusions`),
+      fetch(`${workerUrl}/api/shows`)
     ]);
 
     let diffusions = [];
@@ -114,8 +116,8 @@ function renderChannels(items) {
   items.forEach(item => {
     const status = String(item.status || "").trim().toUpperCase();
 
-    // Masque les chaînes et stations archivées (disparues) sur la page de streaming
-    if (status === "ARCHIVE" || status === "ARCHIVED") return;
+    // Masque les chaînes archivées (disparues) et les chaînes bonus (YouTube/VOD uniquement) dans les grilles direct
+    if (status === "ARCHIVE" || status === "ARCHIVED" || status === "BONUS") return;
 
     const isActive = status === "TRUE";
     const colorVar = CHANNEL_COLOR_VARS[item.nom];
@@ -128,7 +130,12 @@ function renderChannels(items) {
       card.rel = "noopener noreferrer";
     }
 
-    card.className = `channel-card relative flex flex-col items-center justify-center p-6 bg-white border border-gray-200 transition-all duration-200 ${ hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-50 grayscale cursor-not-allowed" }`;  if (colorVar) { card.style.setProperty('--channel-color', `var(${colorVar})`);
+    card.className = `channel-card relative flex flex-col items-center justify-center p-6 bg-white border border-gray-200 transition-all duration-200 ${
+      hasLink ? "hover:shadow-md cursor-pointer hover:-translate-y-0.5" : "opacity-50 grayscale cursor-not-allowed"
+    }`;
+
+    if (colorVar) {
+      card.style.setProperty('--channel-color', `var(${colorVar})`);
     }
 
     card.innerHTML = `
@@ -242,4 +249,42 @@ function renderFeaturedShows(shows, diffusions) {
             </span>
           </div>
         ` : ''}
-        <h2 class="text-2xl md:
+        <h2 class="text-2xl md:text-4xl font-bold text-white mb-2">${esc(show.nom)}</h2>
+        <p class="text-gray-200 max-w-lg mb-4 text-sm md:text-base">${esc(show.description || '')}</p>
+        <a href="watch.html?id=${encodeURIComponent(show.id)}" class="inline-block px-5 py-2.5 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-[#c8102e] hover:text-white transition-colors">${podcast ? 'Écouter' : 'Regarder'}</a>
+      </div>
+    `;
+    slider.appendChild(slide);
+  });
+
+  startSliderAutoplay(slider);
+}
+
+// Défilement automatique du slider (pause au survol / au toucher, retour au début en fin de piste)
+function startSliderAutoplay(slider, delay = 5000) {
+  clearInterval(slider._autoplay);
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (slider.children.length < 2) return;
+
+  const step = () => {
+    // Rien à faire si toutes les diapos tiennent déjà à l'écran
+    if (slider.scrollWidth <= slider.clientWidth + 4) return;
+    const gap = parseFloat(getComputedStyle(slider).columnGap) || 24;
+    const amount = slider.children[0].getBoundingClientRect().width + gap;
+    const atEnd = slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 4;
+    slider.scrollTo({ left: atEnd ? 0 : slider.scrollLeft + amount, behavior: "smooth" });
+  };
+
+  const start = () => { clearInterval(slider._autoplay); slider._autoplay = setInterval(step, delay); };
+  const stop = () => clearInterval(slider._autoplay);
+
+  slider.addEventListener("mouseenter", stop);
+  slider.addEventListener("mouseleave", start);
+  slider.addEventListener("touchstart", stop, { passive: true });
+  slider.addEventListener("touchend", () => setTimeout(start, delay), { passive: true });
+  start();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadZappingData();
+});
