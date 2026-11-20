@@ -38,7 +38,7 @@
     const words = String(text).trim().split(/\s+/).filter(Boolean).length;
     if (!words) return '';
     const mins = Math.max(1, Math.round(words / 200));
-    return `${mins} min de lecture`;
+    return `${mins} min`;
   }
 
   const parseDate = d => {
@@ -50,10 +50,10 @@
   function timeAgo(d) {
     const dt = parseDate(d); if (!dt) return '';
     const min = Math.round((Date.now() - dt.getTime()) / 60000);
-    if (min < 1) return 'à l’instant';
-    if (min < 60) return `il y a ${min} min`;
-    if (min < 60 * 24) return `il y a ${Math.floor(min / 60)} h`;
-    if (min < 60 * 24 * 7) return `il y a ${Math.floor(min / 1440)} j`;
+    if (min < 1) return 'À l’instant';
+    if (min < 60) return `Il y a ${min} min`;
+    if (min < 60 * 24) return `Il y a ${Math.floor(min / 60)} h`;
+    if (min < 60 * 24 * 7) return `Il y a ${Math.floor(min / 1440)} j`;
     return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   }
   const shortDate = d => {
@@ -92,24 +92,34 @@
       : `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('n-thumb--empty');this.outerHTML='<span>${label}</span>'">`}</div>`;
   }
   const kicker = r => r ? `<span class="n-kicker">${esc(r.nom)}</span>` : '';
-  const meta = a => {
+  const meta = (a, longRead = false) => {
     const rt = readingTime(a.contenu);
-    const parts = [timeAgo(a.date_publication), rt].filter(Boolean);
+    const rtLabel = rt ? (longRead ? `${rt} de lecture` : rt) : '';
+    const parts = [timeAgo(a.date_publication), rtLabel].filter(Boolean);
     return `<span class="n-meta">${esc(parts.join(' · '))}</span>`;
   };
 
   function card(a, opts = {}) {
     const r = rubOf(a);
-    const cls = ['n-card', opts.small ? 'n-card--sm' : '', opts.text ? 'n-card--text' : '', opts.row ? 'n-card--row' : '', rubClass(r)].join(' ');
+    const cls = [
+      'n-card',
+      opts.small ? 'n-card--sm' : '',
+      opts.compact ? 'n-card--compact' : '',
+      opts.text ? 'n-card--text' : '',
+      opts.row ? 'n-card--row' : '',
+      rubClass(r)
+    ].filter(Boolean).join(' ');
+
     return `
       <a class="${cls}" href="${articleUrl(a)}">
         ${opts.text ? '' : thumb(a, r)}
         <div>${kicker(r)}</div>
         <h3 class="n-title">${esc(a.titre)}</h3>
         ${opts.chapo && isFilled(a.chapo) ? `<p class="n-chapo">${esc(a.chapo)}</p>` : ''}
-        ${meta(a)}
+        ${meta(a, !!opts.longRead)}
       </a>`;
   }
+
   function feedList(list) {
     return list.map(a => {
       const r = rubOf(a);
@@ -210,10 +220,10 @@
           <div>${kicker(lr)}</div>
           <h2 class="n-title">${esc(lead.titre)}</h2>
           ${isFilled(lead.chapo) ? `<p class="n-chapo">${esc(lead.chapo)}</p>` : ''}
-          ${meta(lead)}
+          ${meta(lead, true)}
         </a>
       </div>
-      <div class="n-side">${side.map(a => card(a, { small: true })).join('')}</div>`;
+      <div class="n-side">${side.map(a => card(a, { compact: true })).join('')}</div>`;
     const stripBox = $('#n-strip');
     if (stripBox) stripBox.innerHTML = strip.map(a => card(a, { text: true })).join('');
 
@@ -307,14 +317,14 @@
           <span>Publié le <b>${esc(fmtFull(a.date_publication))}</b></span>
           ${isFilled(a.auteur) ? `<span>Par <b>${esc(a.auteur)}</b></span>` : ''}
           ${isFilled(a.source) ? `<span>Source : <b>${esc(a.source)}</b></span>` : ''}
-          ${rt ? `<span><b>${esc(rt)}</b></span>` : ''}
+          ${rt ? `<span><b>${esc(rt)} de lecture</b></span>` : ''}
         </div>
         ${imgSrc ? `<figure class="n-figure"><img src="${esc(imgSrc)}" alt="${esc(a.titre)}"></figure>` : ''}
         <div class="n-body">${paras.map(p => `<p>${esc(p)}</p>`).join('') || ''}</div>
         <div class="n-share">
           ${navigator.share ? `<button class="n-btn n-btn--dark" id="n-native-share" type="button">${icon('share')} Partager</button>` : ''}
           <button class="n-btn n-btn--dark" id="n-copy" type="button">${icon('link')} Copier le lien</button>
-          <a class="n-btn n-btn--dark" href="mailto:${MAIL}?subject=${encodeURIComponent('Précision sur : ' + a.titre)}">${icon('mail')} Signaler une erreur</a>
+          <a class="n-btn" href="mailto:${MAIL}?subject=${encodeURIComponent('Précision sur : ' + a.titre)}">${icon('mail')} Signaler une erreur</a>
         </div>
         ${related.length ? `<section class="n-more"><div class="n-sec-head"><h2>À lire aussi</h2></div><div class="n-three">${related.map(x => card(x, { small: true })).join('')}</div></section>` : ''}
       </article>
