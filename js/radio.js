@@ -1,9 +1,9 @@
 /* ==========================================================================
    FURNALITY RADIO — logique du site Radio (Furnality Radio + RFF)
+   - Deux entités : Furnality Radio (nationale & internationale) et RFF (réseau)
    - Logos conservés dans leurs couleurs d'origine (Alt utilisé sur fond sombre)
-   - Sigle à 3 lettres conservé + nom complet ajouté quand il le faut
+   - Sigle à 3 lettres conservé sur RFF et les antennes régionales + nom complet
    - Activation progressive pilotée par D1 (publie = 1)
-   - Fiches présentations enrichies via Cloudflare Worker (/api/radio/station)
    ========================================================================== */
 (function () {
   'use strict';
@@ -48,33 +48,23 @@
     ]
   };
 
-  /* 1) Entité Groupe : Furnality Radio */
-  var GROUP = {
-    code: 'FURNALITY', sigle: 'FURNALITY', kind: 'group', nom: 'Furnality Radio', texte: 'FURNALITY / RADIO', pole: 'GROUPE',
-    zone: 'Groupe radio & coordination internationale',
-    slogan: 'Le pôle radio du groupe Furnality',
-    desc: 'Furnality Radio est l’entité groupe qui pilote les activités radiophoniques de Furnality. Elle supervise l’antenne généraliste Furnality Radio - Radio et détient le réseau régional RFF.',
-    format: 'Groupe audiovisuel · Régulation CRAN',
-    a1: '#120a2b', a2: '#5a189a', publie: 1
-  };
-
-  /* 2) Entité Antenne généraliste : Furnality Radio - Radio */
-  var MAIN_RADIO = {
-    code: 'FRR', sigle: 'FRR', kind: 'main_radio', nom: 'Furnality Radio - Radio', texte: 'FURNALITY RADIO / RADIO', pole: 'GROUPE',
+  /* 1) Furnality Radio : antenne généraliste nationale & internationale + pôle radio */
+  var FURNALITY_RADIO = {
+    code: 'FURNALITY', sigle: '', kind: 'national', nom: 'Furnality Radio', texte: 'FURNALITY / RADIO', pole: 'NATIONAL',
     zone: 'Nationale et internationale',
     slogan: 'La radio généraliste de Furnality',
-    desc: 'L’antenne généraliste du groupe Furnality, diffusée à l’échelle nationale et internationale : programmes généralistes, News et SoundofSkully.',
-    format: 'Généraliste, News & Musique',
+    desc: 'Furnality Radio est l’antenne généraliste nationale et internationale du groupe Furnality : programmes généralistes, News, SoundofSkully et coordination du réseau régional RFF.',
+    format: 'Généraliste, News & Musique · Régulation CRAN',
     fuseau: 'Europe/Paris',
     a1: '#004dff', a2: '#5a189a', publie: 1
   };
 
-  /* 3) Entité Réseau régional : RFF */
+  /* 2) RFF : réseau d'antennes territoriales francophones */
   var RFF = {
     code: 'RFF', sigle: 'RFF', kind: 'brand', nom: 'Radio Francophones de Furnality', texte: 'RADIO / FRANCOPHONE / DE FURNALITY', pole: 'RESEAU',
     zone: 'Toute la francophonie',
     slogan: 'Les radios locales de la francophonie',
-    desc: 'Le réseau de radios régionales de Furnality : des antennes locales implantées territoire par territoire, regroupées en six pôles. La RFF appartient au groupe Furnality Radio.',
+    desc: 'Le réseau de radios régionales de Furnality : des antennes locales implantées territoire par territoire, regroupées en six pôles et pilotées par Furnality Radio.',
     format: 'Réseau d’antennes territoriales',
     a1: '#004dff', a2: '#120a2b', publie: 1
   };
@@ -98,17 +88,20 @@
     } catch (e) { return ''; }
   }
 
-  /* Sigle à 3 lettres + nom complet */
-  function sigleOf(s) { return s ? (s.sigle || s.code) : ''; }
+  /* Sigle à 3 lettres (uniquement RFF et antennes régionales) + nom complet */
+  function sigleOf(s) {
+    if (!s || s.kind === 'national') return '';
+    return s.sigle || s.code || '';
+  }
   function fullTitle(s) {
     if (!s) return '';
     var sig = sigleOf(s);
-    if (s.kind === 'group') return s.nom;
-    return sig + ' — ' + s.nom;
+    return sig ? (sig + ' — ' + s.nom) : s.nom;
   }
   function sigleHtml(s, withFull) {
     if (!s) return '';
     var sig = sigleOf(s);
+    if (!sig) return withFull ? ('<span>' + esc(s.nom) + '</span>') : '';
     var tag = '<span class="sigle-tag" style="background:' + esc(s.a1 || '#120a2b') + '">' + esc(sig) + '</span>';
     return withFull ? (tag + '<span>' + esc(s.nom) + '</span>') : tag;
   }
@@ -142,12 +135,12 @@
   var contenus = [], programmes = [];
 
   function poleName(id) {
-    if (id === 'GROUPE') return 'Groupe Furnality';
+    if (id === 'NATIONAL') return 'Nationale & Internationale';
     if (id === 'RESEAU') return 'Réseau RFF';
     return poleById[id] ? poleById[id].nom : id;
   }
-  function allEntities() { return [GROUP, MAIN_RADIO, RFF].concat(stations); }
-  function allCatalogEntities() { return [GROUP, MAIN_RADIO, RFF].concat(allCatalog); }
+  function allEntities() { return [FURNALITY_RADIO, RFF].concat(stations); }
+  function allCatalogEntities() { return [FURNALITY_RADIO, RFF].concat(allCatalog); }
 
   function find(code) {
     code = String(code || '').toUpperCase();
@@ -155,20 +148,18 @@
            allCatalogEntities().filter(function (s) { return s.code === code; })[0];
   }
   function isLive(s) {
-    if (!s) return false;
-    if (s.kind === 'group') return isLive(MAIN_RADIO);
+    if (!s || s.kind === 'brand') return false;
     return filled(s.stream_url) && s.statut !== 'soon';
   }
 
-  /* Logos SVG en couleurs d'origine (Alt utilisé uniquement pour Furnality sur fond sombre) */
+  /* Logos SVG en couleurs d'origine (Alt utilisé uniquement pour Furnality Radio sur fond sombre) */
   function logo(s, v) {
     v = v || 'Full';
     if (!s) return '';
-    if (s.kind === 'group') {
-      return url('Assets/STD/RADIO/' + (v === 'Alt' ? 'Furnality Radio Alt.svg' : 'Furnality Radio.svg'));
-    }
-    if (s.kind === 'main_radio') {
-      return url('Assets/STD/RADIO/' + (v === 'Alt' ? 'Furnality Radio - Radio Alt.svg' : 'Furnality Radio - Radio.svg'));
+    if (s.kind === 'national') {
+      if (v === 'Alt') return url('Assets/STD/RADIO/Furnality Radio Alt.svg');
+      if (v === 'Fav') return url('Assets/STD/RADIO/Furnality Radio Fav.svg');
+      return url('Assets/STD/RADIO/Furnality Radio.svg');
     }
     if (s.kind === 'brand') {
       var rffMap = { Full: 'RFF---Full.svg', BUG: 'RFF---BUG.svg', ICN: 'RFF---ICN.svg', Tag: 'RFF---Tag.svg' };
@@ -178,10 +169,10 @@
     return file ? url('Assets/STD/RADIO/RRF/' + file) : '';
   }
 
-  /* Logo principal : BUG en couleurs pour les antennes RRF, Full/Alt selon le fond pour Furnality */
+  /* Logo principal : BUG en couleurs pour les antennes RRF, Full/Alt selon le fond pour Furnality Radio */
   function cardLogo(s, onDark) {
     if (!s) return '';
-    if (s.kind === 'group' || s.kind === 'main_radio') return logo(s, onDark ? 'Alt' : 'Full');
+    if (s.kind === 'national') return logo(s, onDark ? 'Alt' : 'Full');
     if (s.kind === 'brand') return logo(s, 'Full');
     return logo(s, 'BUG');
   }
@@ -191,7 +182,7 @@
     var fb = (s && s.kind === 'rrf') ? logo(s, 'Full') : '';
     return '<img class="logo-svg ' + (cls || '') + '" src="' + esc(src) + '" alt="' + esc(alt != null ? alt : fullTitle(s)) + '"' +
       (fb && fb !== src ? ' data-fallback="' + esc(fb) + '"' : '') +
-      ' data-code="' + esc(sigleOf(s)) + '" draggable="false" loading="lazy">';
+      ' data-code="' + esc(sigleOf(s) || 'FURNALITY') + '" draggable="false" loading="lazy">';
   }
 
   /* Fallback automatique si un SVG RRF/RFF échoue à charger */
@@ -207,8 +198,8 @@
     if (!img.getAttribute('data-svg-done')) {
       img.setAttribute('data-svg-done', '1');
       var code = esc(img.getAttribute('data-code') || 'RADIO');
-      var svgBadge = '<svg xmlns="http://www.w3.org/2000/svg" width="110" height="44" viewBox="0 0 110 44">' +
-        '<text x="0" y="30" font-family="Inter Tight,Inter,Arial,sans-serif" font-weight="900" font-size="24" letter-spacing="2" fill="#120a2b">' + code + '</text></svg>';
+      var svgBadge = '<svg xmlns="http://www.w3.org/2000/svg" width="130" height="44" viewBox="0 0 130 44">' +
+        '<text x="0" y="30" font-family="Inter Tight,Inter,Arial,sans-serif" font-weight="900" font-size="22" letter-spacing="1.5" fill="#120a2b">' + code + '</text></svg>';
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgBadge);
     }
   }, true);
@@ -221,13 +212,10 @@
   });
 
   function idents(s) {
-    if (s.kind === 'group') return [
-      { l: 'Standard (fond clair)', u: url('Assets/STD/RADIO/Furnality Radio.svg'), dark: false },
-      { l: 'Alternatif (fond sombre)', u: url('Assets/STD/RADIO/Furnality Radio Alt.svg'), dark: true }
-    ];
-    if (s.kind === 'main_radio') return [
-      { l: 'Standard (fond clair)', u: url('Assets/STD/RADIO/Furnality Radio - Radio.svg'), dark: false },
-      { l: 'Alternatif (fond sombre)', u: url('Assets/STD/RADIO/Furnality Radio - Radio Alt.svg'), dark: true }
+    if (s.kind === 'national') return [
+      { l: 'Standard (fond clair)', u: logo(s, 'Full'), dark: false },
+      { l: 'Alternatif (fond sombre)', u: logo(s, 'Alt'), dark: true },
+      { l: 'Icône / Favicon (Fav)', u: logo(s, 'Fav'), dark: false }
     ];
     if (s.kind === 'brand') return [
       { l: 'RFF · Standard', u: logo(s, 'Full'), dark: false },
@@ -275,8 +263,7 @@
           activeMap[code] = pub;
           orderMap[code] = row.ordre != null ? +row.ordre : (idx + 10);
 
-          if (code === 'FURNALITY') { mergeRow(GROUP, row); return; }
-          if (code === 'FRR') { mergeRow(MAIN_RADIO, row); return; }
+          if (code === 'FURNALITY') { mergeRow(FURNALITY_RADIO, row); return; }
           if (code === 'RFF') { mergeRow(RFF, row); return; }
 
           var s = allCatalog.filter(function (x) { return x.code === code; })[0];
@@ -338,12 +325,12 @@
     audio.src = item.url; audio.play().catch(function () { toast('Lecture impossible : le navigateur a bloqué ou le flux est indisponible.'); });
   }
   function playStation(s) {
-    if (s && s.kind === 'group') s = MAIN_RADIO;
-    if (!isLive(s)) { toast(fullTitle(s || MAIN_RADIO) + ' arrive bientôt à l’antenne.'); return; }
+    s = s || FURNALITY_RADIO;
+    if (!isLive(s)) { toast(fullTitle(s) + ' arrive bientôt à l’antenne.'); return; }
     play({ url: s.stream_url, title: fullTitle(s), sub: 'En direct · ' + s.zone, logo: cardLogo(s, true) });
   }
   function playContent(c) {
-    var s = find(c.station_code) || MAIN_RADIO;
+    var s = find(c.station_code) || FURNALITY_RADIO;
     play({ url: c.url, title: c.titre, sub: fullTitle(s) + (filled(c.duree) ? ' · ' + c.duree : ''), logo: cardLogo(s, true) });
   }
   document.addEventListener('click', function (e) {
@@ -358,7 +345,6 @@
 
   /* ---------- Gabarits ---------- */
   function badge(s) {
-    if (s.kind === 'group') return '<span class="badge badge--pole">Groupe radio</span>';
     if (s.kind === 'brand') return '<span class="badge badge--pole">Réseau RFF</span>';
     return isLive(s) ? '<span class="badge badge--live">En direct</span>' : '<span class="badge badge--soon">Bientôt</span>';
   }
@@ -369,13 +355,13 @@
       '<div class="st-body"><div class="st-title">' + sigleHtml(s, false) + '<h3><a href="' + href + '">' + esc(s.nom) + '</a></h3></div><p class="st-zone">' + esc(s.zone) + '</p></div>' +
       '<div class="st-foot">' + badge(s) + '<span style="display:flex;gap:12px;align-items:center">' +
       '<a class="more" href="' + href + '">Fiche</a>' +
-      (s.kind !== 'group' && s.kind !== 'brand' ? '<button class="btn btn--sm btn--ghost" data-play="' + esc(s.code) + '" aria-label="Écouter ' + esc(fullTitle(s)) + '">' + ic('play', 'icon--fill') + ' Écouter</button>' : '') +
+      (s.kind !== 'brand' ? '<button class="btn btn--sm btn--ghost" data-play="' + esc(s.code) + '" aria-label="Écouter ' + esc(fullTitle(s)) + '">' + ic('play', 'icon--fill') + ' Écouter</button>' : '') +
       '</span></div></article>';
   }
 
-  /* Carte de contenu : affiche les couleurs + le sigle à 3 lettres + le nom complet */
+  /* Carte de contenu : affiche les couleurs + le sigle (si RFF/régionale) + le nom complet */
   function contentCard(c) {
-    var s = find(c.station_code) || MAIN_RADIO;
+    var s = find(c.station_code) || FURNALITY_RADIO;
     var a1 = esc(s.a1 || '#004dff'), a2 = esc(s.a2 || '#5a189a');
     var thumb = filled(c.image)
       ? '<img class="cover" src="' + esc(c.image) + '" alt="" loading="lazy">'
@@ -389,7 +375,7 @@
       '<div class="cc-body">' +
         '<a class="cc-station" href="' + href + '" title="Voir la fiche de ' + esc(fullTitle(s)) + '">' +
           '<span class="cc-swatch" aria-hidden="true"></span>' +
-          '<span class="sigle-tag">' + esc(sigleOf(s)) + '</span>' +
+          sigleHtml(s, false) +
           '<span class="cc-station-name">' + esc(s.nom) + '</span>' +
         '</a>' +
         '<div class="cc-meta"><span>' + type + '</span>' + (filled(c.date_publication) ? '<span>' + esc(fmtDate(c.date_publication)) + '</span>' : '') + '</div>' +
@@ -471,18 +457,18 @@
   var pages = {};
 
   pages.home = function () {
-    var playable = [MAIN_RADIO].concat(stations);
+    var playable = [FURNALITY_RADIO].concat(stations);
     var live = playable.filter(isLive).length;
     var el = $('#home-stats');
     if (el) el.innerHTML =
       '<div class="stat"><b>' + stations.length + ' / ' + DATA.stations.length + '</b><span>Antennes RFF ouvertes</span></div>' +
       '<div class="stat"><b>' + DATA.poles.length + '</b><span>Pôles régionaux</span></div>' +
-      '<div class="stat"><b>3</b><span>Entités : Groupe, Radio &amp; RFF</span></div>' +
+      '<div class="stat"><b>2</b><span>Entités : Furnality Radio &amp; RFF</span></div>' +
       '<div class="stat"><b>' + (live ? live : contenus.length) + '</b><span>' + (live ? 'Antennes en direct' : 'Contenus en ligne') + '</span></div>';
 
-    var st = $('#onair-status'); if (st) st.innerHTML = badge(MAIN_RADIO);
-    var now = nowShow(MAIN_RADIO.code), n = $('#onair-now');
-    if (n) n.innerHTML = now ? 'À l’antenne<strong>' + esc(now.titre) + '</strong>' : 'Programmation<strong>' + (isLive(MAIN_RADIO) ? 'En direct' : 'Ouverture prochaine') + '</strong>';
+    var st = $('#onair-status'); if (st) st.innerHTML = badge(FURNALITY_RADIO);
+    var now = nowShow('FURNALITY'), n = $('#onair-now');
+    if (n) n.innerHTML = now ? 'À l’antenne<strong>' + esc(now.titre) + '</strong>' : 'Programmation<strong>' + (isLive(FURNALITY_RADIO) ? 'En direct' : 'Ouverture prochaine') + '</strong>';
 
     var ph = $('#home-poles');
     if (ph) ph.innerHTML = DATA.poles.map(function (p) {
@@ -524,9 +510,9 @@
     }
     function renderList() {
       var q = norm(query), box = $('#list-grid');
-      var group = (poleSel === 'ALL' && !q) ? [GROUP, MAIN_RADIO] : [GROUP, MAIN_RADIO].filter(function (x) { return poleSel === 'ALL' && norm(x.nom + ' ' + x.code + ' ' + x.zone).indexOf(q) > -1; });
+      var nat = (poleSel === 'ALL' && (!q || norm(FURNALITY_RADIO.nom + ' ' + FURNALITY_RADIO.zone).indexOf(q) > -1)) ? [FURNALITY_RADIO] : [];
       var out = '';
-      if (group.length) out += '<div class="pole-title">Groupe &amp; Antenne généraliste</div><div class="stations">' + group.map(stCard).join('') + '</div>';
+      if (nat.length) out += '<div class="pole-title">Antenne nationale &amp; internationale</div><div class="stations">' + nat.map(stCard).join('') + '</div>';
       DATA.poles.forEach(function (p) {
         if (poleSel !== 'ALL' && poleSel !== p.id) return;
         var list = stations.filter(function (s) { return s.pole === p.id && (!q || norm(s.nom + ' ' + s.code + ' ' + s.zone).indexOf(q) > -1); });
@@ -554,7 +540,7 @@
 
   /* ---------- Fiche de présentation enrichie avec Cloudflare (/api/radio/station) ---------- */
   pages.station = function () {
-    var codeParam = (qs('r') || 'FRR').toUpperCase();
+    var codeParam = (qs('r') || 'FURNALITY').toUpperCase();
     var s = find(codeParam), root = $('#station-root');
     if (!s) {
       root.innerHTML = '<section class="section"><div class="wrap">' + empty('search', 'Antenne introuvable', 'Ce code ne correspond à aucune antenne.') + '<p style="text-align:center;margin-top:20px"><a class="btn" href="radios.html">Voir toutes les radios</a></p></div></section>';
@@ -565,24 +551,24 @@
       if (detail && detail.station) mergeRow(s, detail.station);
 
       document.title = fullTitle(s) + ' — Furnality Radio';
-      var kindLabel = s.kind === 'group' ? 'Groupe Furnality' : s.kind === 'main_radio' ? 'Antenne généraliste' : s.kind === 'brand' ? 'Réseau RFF' : poleName(s.pole);
+      var kindLabel = s.kind === 'national' ? 'Antenne nationale & internationale' : s.kind === 'brand' ? 'Réseau RFF' : poleName(s.pole);
       var same = s.kind === 'rrf' ? stations.filter(function (x) { return x.pole === s.pole && x.code !== s.code; }) : [];
       var mineReplays = (detail && Array.isArray(detail.replays)) ? detail.replays : contenus.filter(function (c) { return String(c.station_code).toUpperCase() === s.code && c.type !== 'podcast'; });
       var minePodcasts = (detail && Array.isArray(detail.podcasts)) ? detail.podcasts : contenus.filter(function (c) { return String(c.station_code).toUpperCase() === s.code && c.type === 'podcast'; });
       var weekProgs = (detail && Array.isArray(detail.programmes)) ? detail.programmes : programmes.filter(function (p) { return String(p.station_code).toUpperCase() === s.code; });
       var today = weekProgs.filter(function (p) { return +p.jour === todayIdx(); }).sort(byStart);
 
-      var desc = s.desc || (s.nom + ' (' + sigleOf(s) + ') est l’antenne locale de la RFF pour ' + s.zone + '. Elle fait partie du ' + poleName(s.pole) + ' et appartient au groupe Furnality Radio.');
+      var desc = s.desc || (s.nom + ' (' + sigleOf(s) + ') est l’antenne locale de la RFF pour ' + s.zone + '. Elle fait partie du ' + poleName(s.pole) + ' et dépend de Furnality Radio.');
       var headGrad = (s.a1 && s.a2) ? 'style="background:linear-gradient(108deg,' + esc(s.a1) + ' 0%,' + esc(s.a2) + ' 100%)"' : '';
       var clock = localClock(s.fuseau);
+      var sig = sigleOf(s);
 
-      var factRows = [
-        ['Sigle', '<strong>' + esc(sigleOf(s)) + '</strong>'],
-        ['Nom complet', esc(s.nom)],
-        ['Entité', esc(s.kind === 'group' ? 'Groupe Furnality Radio' : s.kind === 'main_radio' ? 'Furnality Radio - Radio' : 'Réseau RFF')],
-        ['Pôle', esc(kindLabel)],
-        ['Zone', esc(s.zone)]
-      ];
+      var factRows = [];
+      if (sig) factRows.push(['Sigle', '<strong>' + esc(sig) + '</strong>']);
+      factRows.push(['Nom complet', esc(s.nom)]);
+      factRows.push(['Entité', esc(s.kind === 'national' ? 'Furnality Radio (Groupe Furnality)' : 'Réseau RFF · Furnality Radio')]);
+      factRows.push(['Pôle', esc(kindLabel)]);
+      factRows.push(['Zone', esc(s.zone)]);
       if (filled(s.format)) factRows.push(['Format', esc(s.format)]);
       if (filled(s.langues)) factRows.push(['Langues', esc(s.langues)]);
       if (filled(s.frequence)) factRows.push(['Diffusion', esc(s.frequence)]);
@@ -593,34 +579,30 @@
       factRows.push(['Statut', badge(s)]);
 
       var relationNote = '';
-      if (s.kind === 'group') {
-        relationNote = '<div class="note" style="margin-top:20px"><b>Entité Groupe.</b> <strong>Furnality Radio</strong> est la maison mère qui gère l’antenne généraliste <a href="radio.html?r=FRR">FRR · Furnality Radio - Radio</a> ainsi que les antennes régionales du réseau <a href="radio.html?r=RFF">RFF</a>.</div>';
-      } else if (s.kind === 'main_radio') {
-        relationNote = '<div class="note" style="margin-top:20px"><b>Antenne généraliste.</b> <strong>FRR · Furnality Radio - Radio</strong> est la station nationale et internationale éditée par le groupe <a href="radio.html?r=FURNALITY">Furnality Radio</a>.</div>';
+      if (s.kind === 'national') {
+        relationNote = '<div class="note" style="margin-top:20px"><b>Antenne principale.</b> <strong>Furnality Radio</strong> est la radio généraliste nationale et internationale de Furnality et supervise l’ensemble des antennes territoriales du réseau <a href="radio.html?r=RFF">RFF</a>.</div>';
       } else if (s.kind === 'brand') {
-        relationNote = '<div class="note" style="margin-top:20px"><b>Réseau régional.</b> La <strong>RFF</strong> regroupe les antennes territoriales francophones. Elle est détenue par le groupe <a href="radio.html?r=FURNALITY">Furnality Radio</a>.</div>';
+        relationNote = '<div class="note" style="margin-top:20px"><b>Réseau régional.</b> La <strong>RFF</strong> regroupe les antennes territoriales francophones. Elle est pilotée par <a href="radio.html?r=FURNALITY">Furnality Radio</a>.</div>';
       }
 
       root.innerHTML =
-        '<section class="page-head" ' + headGrad + '><div class="wrap"><div class="crumbs"><a href="radios.html">Radios</a> / ' + esc(kindLabel) + ' / <strong>' + esc(sigleOf(s)) + '</strong></div>' +
+        '<section class="page-head" ' + headGrad + '><div class="wrap"><div class="crumbs"><a href="radios.html">Radios</a> / ' + esc(kindLabel) + ' / <strong>' + esc(sig || s.nom) + '</strong></div>' +
         '<div class="fiche-logo">' + logoImg(s, null, '', fullTitle(s), true) + '</div>' +
-        '<h1 class="h1">' + esc(s.kind === 'group' ? s.nom : (sigleOf(s) + ' · ' + s.nom)) + '</h1>' +
+        '<h1 class="h1">' + esc(sig ? (sig + ' · ' + s.nom) : s.nom) + '</h1>' +
         (filled(s.slogan) ? '<p class="fiche-slogan">' + esc(s.slogan) + '</p>' : '') +
         '<p>' + esc(s.zone) + '</p>' +
         '<div class="hero-cta">' +
-          (s.kind === 'group'
-            ? '<a class="btn btn--white" href="radio.html?r=FRR">' + ic('wave') + ' Voir l’antenne FRR · Furnality Radio - Radio</a><button class="btn btn--line-white" data-play="FRR">' + ic('play', 'icon--fill') + ' Écouter le direct</button>'
-            : s.kind === 'brand'
-              ? '<a class="btn btn--white" href="radios.html">' + ic('map') + ' Explorer les antennes actives</a>'
-              : '<button class="btn btn--white" data-play="' + esc(s.code) + '">' + ic('play', 'icon--fill') + ' Écouter</button>') +
+          (s.kind === 'brand'
+            ? '<a class="btn btn--white" href="radios.html">' + ic('map') + ' Explorer les antennes actives</a>'
+            : '<button class="btn btn--white" data-play="' + esc(s.code) + '">' + ic('play', 'icon--fill') + ' Écouter</button>') +
           (s.kind === 'rrf' ? '<a class="btn btn--line-white" href="radios.html?r=' + esc(s.code) + '&pole=' + esc(s.pole) + '">' + ic('map') + ' Voir sur la carte</a>' : '') +
         '</div></div></section>' +
 
         '<section class="section"><div class="wrap fiche"><div>' +
-          '<span class="eyebrow">Présentation · ' + esc(sigleOf(s)) + '</span><h2 class="h2" style="margin:10px 0 14px">' + esc(s.nom) + '</h2><p class="lead">' + esc(desc) + '</p>' +
+          '<span class="eyebrow">Présentation' + (sig ? ' · ' + esc(sig) : '') + '</span><h2 class="h2" style="margin:10px 0 14px">' + esc(s.nom) + '</h2><p class="lead">' + esc(desc) + '</p>' +
           relationNote +
 
-          (s.kind !== 'group' && s.kind !== 'brand' ? (
+          (s.kind !== 'brand' ? (
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:36px 0 14px;flex-wrap:wrap">' +
               '<h3 class="h2" style="font-size:1.2rem">Grille des programmes</h3>' +
               '<div class="tabs" id="st-prog-tabs"><button class="is-on" data-ptab="today">Aujourd’hui</button><button data-ptab="week">Semaine (' + weekProgs.length + ')</button></div>' +
@@ -643,7 +625,7 @@
           same.map(function (x) { return '<a class="live" style="--a1:' + esc(x.a1) + '" href="radio.html?r=' + esc(x.code) + '">' + logoImg(x, 'BUG', 'lg', fullTitle(x), false) + '<div class="live-info"><b>' + sigleHtml(x, true) + '</b><span class="zone">' + esc(x.zone) + '</span></div>' + ic('arrow') + '</a>'; }).join('') + '</div>' : '') +
         '</aside></div></section>' +
 
-        '<section class="section section--tint"><div class="wrap"><span class="eyebrow">Identité visuelle</span><h2 class="h2" style="margin:10px 0 26px">Déclinaisons de ' + esc(sigleOf(s)) + '</h2><div class="idents" style="--a1:' + esc(s.a1) + ';--a2:' + esc(s.a2) + '">' +
+        '<section class="section section--tint"><div class="wrap"><span class="eyebrow">Identité visuelle</span><h2 class="h2" style="margin:10px 0 26px">Déclinaisons de ' + esc(sig || s.nom) + '</h2><div class="idents" style="--a1:' + esc(s.a1) + ';--a2:' + esc(s.a2) + '">' +
           idents(s).map(function (i) {
             return '<div class="ident"><div class="ident-view' + (i.dark ? ' ident-view--dark' : '') + '"><img class="logo-svg" src="' + esc(i.u) + '" alt="' + esc(i.l) + '" draggable="false"></div><div class="ident-meta"><span>' + esc(i.l) + '</span></div></div>';
           }).join('') +
@@ -677,9 +659,9 @@
   pages.contenus = function () {
     var tab = location.hash === '#replays' ? 'replays' : 'stream', sel = 'ALL', q = '';
     var box = $('#contenus-box'), selEl = $('#f-station');
-    var playableStations = [MAIN_RADIO].concat(stations);
+    var playableStations = [FURNALITY_RADIO].concat(stations);
     selEl.innerHTML = '<option value="ALL">Toutes les antennes (' + playableStations.length + ')</option>' +
-      playableStations.map(function (s) { return '<option value="' + esc(s.code) + '">' + esc(sigleOf(s) + ' — ' + s.nom) + '</option>'; }).join('');
+      playableStations.map(function (s) { return '<option value="' + esc(s.code) + '">' + esc(fullTitle(s)) + '</option>'; }).join('');
 
     function render() {
       $$('.tabs [data-tab]').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-tab') === tab); });
@@ -722,13 +704,12 @@
       (filled(p.description) ? '<span>' + esc(p.description) + '</span>' : '') + '</div>' + (filled(p.animateur) ? '<span>' + esc(p.animateur) + '</span>' : '<span></span>') + '</div>';
   }
   pages.programmes = function () {
-    var playableStations = [MAIN_RADIO].concat(stations);
-    var day = todayIdx(), code = (qs('r') || 'FRR').toUpperCase();
-    if (code === 'FURNALITY') code = 'FRR';
-    if (!playableStations.some(function (x) { return x.code === code; })) code = 'FRR';
+    var playableStations = [FURNALITY_RADIO].concat(stations);
+    var day = todayIdx(), code = (qs('r') || 'FURNALITY').toUpperCase();
+    if (!playableStations.some(function (x) { return x.code === code; })) code = 'FURNALITY';
 
     var selEl = $('#f-station'), daysEl = $('#days'), box = $('#sched');
-    selEl.innerHTML = playableStations.map(function (s) { return '<option value="' + esc(s.code) + '">' + esc(sigleOf(s) + ' — ' + s.nom) + '</option>'; }).join('');
+    selEl.innerHTML = playableStations.map(function (s) { return '<option value="' + esc(s.code) + '">' + esc(fullTitle(s)) + '</option>'; }).join('');
     selEl.value = code;
     daysEl.innerHTML = DAYS.map(function (d, i) { return '<button data-day="' + (i + 1) + '">' + d.slice(0, 3) + '.</button>'; }).join('');
     function render() {
