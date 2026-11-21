@@ -154,7 +154,7 @@ button{cursor:pointer}
 .crumbs a:hover{color:#fff;text-decoration:underline}
 
 /* ---------- Trois entités ---------- */
-.duo{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.duo{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
 .brandcard{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column}
 .brandcard-logo{padding:28px 26px 8px;display:flex;align-items:center;min-height:116px}
 .brandcard-logo img{max-height:72px;width:auto;max-width:100%}
