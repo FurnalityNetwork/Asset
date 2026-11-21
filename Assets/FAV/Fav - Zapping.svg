@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 48 48">
+  <defs>
+    <style>
+      .cls-1{fill:#000000}
+      .cls-2{fill:#ffffff}
+    </style>
+  </defs>
+  <title>Fav - Zapping</title>
+  <g id="Calque_1" data-name="Calque 1">
+    <rect x="-0.024" y="-0.045" width="48.048" height="48.09" class="cls-1"/>
+    <polygon points="15.052,36.756 25.418,11.254 25.418,6.272 9.054,6.272 9.054,11.353 19.42,11.353 9.054,36.862 9.054,41.836 48,41.836 48,36.756" class="cls-2"/>
+    <rect x="29.784" y="6.164" width="4.367" height="20.614" class="cls-2"/>
+    <rect x="29.784" y="29.584" width="4.367" height="4.366" class="cls-2"/>
+  </g>
+</svg>

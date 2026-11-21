@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 48 48">
+  <defs>
+    <style>
+      .cls-1{fill:#000000}
+      .cls-2{fill:url(#Dégradé_sans_nom_27)}
+    </style>
+    <linearGradient id="Dégradé_sans_nom_27" x1="13.543" y1="1.446" x2="36.814" y2="21.608" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#004dff"/>
+      <stop offset="1" stop-color="#5a189a"/>
+    </linearGradient>
+  </defs>
+  <title>Fav - Radio</title>
+  <g id="Calque_1" data-name="Calque 1">
+    <rect x="-0.024" y="-0.045" width="48.048" height="48.09" class="cls-1"/>
+    <polygon points="8.914,24 7.128,8.849 24,12.887 40.872,16.925 25.785,28.038 10.699,39.151" class="cls-2"/>
+  </g>
+</svg>
