@@ -132,13 +132,23 @@
   function logo(s, v) {
     v = v || 'Full';
     if (!s) return '';
+    /* Radio nationale Furnality Radio */
     if (s.kind === 'national') {
-      return v === 'Fav' ? url('Assets/FAV/Fav - Radio.svg') : url('Assets/STD/RADIO/Furnality Radio.svg');
+      if (v === 'Fav') return url('Assets/FAV/Fav - Radio.svg');
+      if (v === 'Alt') return url('Assets/STD/RADIO/Furnality Radio - Radio Alt.svg');
+      return url('Assets/STD/RADIO/Furnality Radio - Radio.svg');
     }
+    /* Groupe Furnality Radio */
+    if (s.kind === 'group') {
+      if (v === 'Alt') return url('Assets/STD/RADIO/Furnality Radio Alt.svg');
+      return url('Assets/STD/RADIO/Furnality Radio.svg');
+    }
+    /* Réseau RFF */
     if (s.kind === 'brand') {
       var rffMap = { Full: 'RFF---Full.svg', BUG: 'RFF---BUG.svg', ICN: 'RFF---ICN.svg', Tag: 'RFF---Tag.svg' };
       return url('Assets/STD/RADIO/RFF/' + (rffMap[v] || 'RFF---Full.svg'));
     }
+    /* Antennes locales RFF */
     var file = (s.logos && (s.logos[v] || s.logos.Full || s.logos.BUG));
     return file ? url('Assets/STD/RADIO/RRF/' + file) : '';
   }
@@ -287,11 +297,11 @@
   function playStation(s) {
     s = s || FURNALITY_RADIO;
     if (!isLive(s)) { toast(fullTitle(s) + ' arrive bientôt à l’antenne.'); return; }
-    play({ url: s.stream_url, title: fullTitle(s), sub: 'En direct · ' + s.zone, logo: logo(s, 'Full') });
+    play({ url: s.stream_url, title: fullTitle(s), sub: 'En direct · ' + s.zone, logo: logo(s, s.kind === 'national' ? 'Alt' : 'Full') });
   }
   function playContent(c) {
     var s = find(c.station_code) || FURNALITY_RADIO;
-    play({ url: c.url, title: c.titre, sub: fullTitle(s) + (filled(c.duree) ? ' · ' + c.duree : ''), logo: logo(s, 'Full') });
+    play({ url: c.url, title: c.titre, sub: fullTitle(s) + (filled(c.duree) ? ' · ' + c.duree : ''), logo: logo(s, s.kind === 'national' ? 'Alt' : 'Full') });
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-play]');
@@ -550,7 +560,7 @@
           (s.kind === 'brand'
             ? '<a class="btn btn--grad" href="radios.html">' + ic('map') + ' Explorer les antennes actives</a>'
             : '<button class="btn btn--grad" data-play="' + esc(s.code) + '">' + ic('play', 'icon--fill') + ' Écouter</button>') +
-          (s.kind === 'rrf' ? '<a class="btn" href="radios.html?r=' + esc(s.code) + '&pole=' + esc(s.pole) + '">' + ic('map') + ' Voir sur la carte</a>' : '') +
+          (s.kind === 'rrf' ? '<a class="btn btn--dark" href="radios.html?r=' + esc(s.code) + '&pole=' + esc(s.pole) + '">' + ic('map') + ' Voir sur la carte</a>' : '') +
         '</div></div></section>' +
 
         '<section class="section"><div class="wrap fiche"><div>' +
