@@ -9,6 +9,7 @@
   const API = (typeof CLOUDFLARE_WORKER_URL !== 'undefined') ? CLOUDFLARE_WORKER_URL : 'https://furnality-api.darkeoftime.workers.dev';
   const NEWS_ASSETS = 'https://raw.githack.com/FurnalityNetwork/Asset/main/Assets/NEWS/';
   const MAIL = 'furnality@gmail.com';
+  const VAPID_PUBLIC_KEY = 'BEka2v9ttEoGM_zhzF2V6VUPtY8t0-j9B_I5_8itByZzojAgMfOsE8m7PCocgEuL4-wY1YcGhhtcVZdRY-ToHs4';
 
   /* ---------- Utilitaires ---------- */
   const $ = (s, r = document) => r.querySelector(s);
@@ -23,7 +24,8 @@
     'link': '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     'share': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
     'newspaper': '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/>',
-    'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'
+    'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    'bell': '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
   };
   const icon = n => `<svg class="n-icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -459,8 +461,86 @@
     });
   }
 
+  /* ---------- Notifications Push (Web App iOS & Android) ---------- */
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+  }
+
+  async function initPushNotifications() {
+    const btn = $('#n-push-btn');
+    if (!btn) return;
+
+    const setLabel = txt => { btn.innerHTML = `${icon('bell')} <span>${esc(txt)}</span>`; };
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (isIOS && !isStandalone) {
+      btn.hidden = false;
+      setLabel('Alertes');
+      btn.addEventListener('click', () => {
+        alert('Ouvre Furnality News depuis l’icône ajoutée sur ton écran d’accueil iPhone, puis appuie sur « Alertes » pour activer les notifications.');
+      });
+      return;
+    }
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js');
+      const existingSub = await reg.pushManager.getSubscription();
+
+      btn.hidden = false;
+      if (existingSub && Notification.permission === 'granted') {
+        setLabel('Alertes activées');
+        btn.classList.add('is-subscribed');
+        btn.disabled = true;
+        return;
+      }
+
+      setLabel('Activer les alertes');
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        setLabel('Activation…');
+        try {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            setLabel('Alertes bloquées');
+            return;
+          }
+
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+
+          const res = await fetch(`${API}/api/news/push/subscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub)
+          });
+
+          if (!res.ok) throw new Error('Erreur serveur');
+
+          setLabel('Alertes activées');
+          btn.classList.add('is-subscribed');
+        } catch (err) {
+          console.error('Erreur inscription Push:', err);
+          btn.disabled = false;
+          setLabel('Réessayer');
+        }
+      });
+    } catch (err) {
+      console.error('Service Worker Push:', err);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const fn = { home: pageHome, rubrique: pageRubrique, article: pageArticle }[document.body.dataset.page];
     if (fn) fn();
+    initPushNotifications();
   });
 })();
