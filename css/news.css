@@ -59,7 +59,7 @@
   transition: width 0.08s linear;
 }
 
-/* ---------- Bandeau supérieur (Titre + Date/Heure + Recherche) ---------- */
+/* ---------- Bandeau supérieur (Titre + Date/Heure + Alertes + Recherche) ---------- */
 .n-band {
   background: #ffffff;
   position: relative;
@@ -131,11 +131,50 @@
   }
 }
 
+.n-band-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.n-push-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--n-ink);
+  color: #ffffff;
+  border: 1px solid var(--n-ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.n-push-btn:hover:not(:disabled) {
+  background: var(--n-red);
+  border-color: var(--n-red);
+}
+.n-push-btn.is-subscribed {
+  background: var(--n-soft);
+  color: var(--n-ink);
+  border-color: var(--n-line);
+  cursor: default;
+}
+.n-push-btn[hidden] {
+  display: none !important;
+}
+
 .n-search {
   display: flex !important;
   align-items: center;
   flex-shrink: 0;
-  margin-left: auto;
 }
 .n-search input {
   background: var(--n-soft);
@@ -825,9 +864,12 @@
 
 @media (max-width: 640px) {
   .n-wrap { padding: 0 16px; }
+  .n-band-top .n-wrap { gap: 8px; }
   .n-band-title { font-size: 11px; }
-  .n-search input { width: 150px; }
-  .n-search input:focus { width: 185px; }
+  .n-band-actions { gap: 6px; }
+  .n-push-btn { padding: 6px 8px; font-size: 10px; }
+  .n-search input { width: 120px; padding: 6px 8px; font-size: 12px; }
+  .n-search input:focus { width: 150px; }
   .n-lead .n-title { font-size: 24px; }
   .n-grid2 { grid-template-columns: 1fr; }
   .n-strip { grid-template-columns: 1fr; }
