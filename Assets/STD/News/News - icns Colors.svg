@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 622.336 549.754">
+  <defs>
+    <style>
+      .cls-1{fill:url(#linear-gradient-1)}
+      .cls-2{fill:url(#linear-gradient-2)}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="576.921" y1="74.456" x2="576.921" y2="475.298" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff1d25"/>
+      <stop offset="1" stop-color="#ff007f"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="251.896" y1="326.386" x2="251.896" y2="475.298" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff1d25"/>
+      <stop offset="1" stop-color="#ff007f"/>
+    </linearGradient>
+  </defs>
+  <title>News icns - Colors</title>
+  <g id="Calque_1" data-name="Calque 1">
+    <g>
+      <polygon points="194.638,74.456 74.311,74.456 427.631,475.298 547.957,475.298" class="cls-1"/>
+      <path d="M148.622 326.386 L148.622 326.386 C107.581 326.386 74.311 359.721 74.311 400.842 L74.311 400.842 C74.311 441.963 107.581 475.298 148.622 475.298 L148.622 475.298 C189.663 475.298 222.933 441.963 222.933 400.842 L222.933 400.842 C222.933 359.721 189.663 326.386 148.622 326.386 Z" class="cls-2"/>
+    </g>
+  </g>
+</svg>
